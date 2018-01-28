@@ -1,5 +1,6 @@
 /* 13/10/2017 Created by Andrea Petrella */
-/* Programma per gestire un robot capace di uscire da solo da un labirinto. */
+/* 28/01/2018 Updated by Andrea Petrella */
+/* Programma per gestire un robot capace di uscire automaticamente da un labirinto. */
 /* SCHEMA DI FUNZIONAMENTO:
 
   ARDUINO
@@ -32,6 +33,20 @@
 
 */
 
+/* ALGORITMO DI FUNZIONAMENTO
+
+  Il robot può uscire da un labirinto applicando questo algoritmo:
+
+  Inizio
+  - Se la parete a destra è libera, vado a destra
+  - Altrimenti
+  - - Se la parete frontale è libera, proseguo dritto
+  - - Altrimenti mi rigiro e inizio un nuovo controllo
+  Fine
+  
+
+*/
+
 //Inclusione delle librerie
 #include <NewPing.h>
 #include <L298NDRIVER.h> //La mia libreria! Serve a gestire i motori DC con la scheda integrata L298N
@@ -51,8 +66,8 @@
 #define motorDX_en2 5
 #define servoMotor 10
 
-#define MAX_DISTANCE 40 // Distanza massima da scansionare (in centimetri). Il sensore copre distanze massime attorno ai 400-500cm.
-#define LIMIT 25 // Distanza limite per fermare il robot prima che colpisca una parete
+#define MAX_DISTANCE 60 // Distanza massima da scansionare (in centimetri). Il sensore copre distanze massime attorno ai 400-500cm.
+#define LIMIT 40 // Distanza limite per fermare il robot prima che colpisca una parete
 
 //Drivers
 NewPing sonar(ultraS_trigger, ultraS_echo, MAX_DISTANCE);
@@ -64,6 +79,9 @@ int rotateTime = 600;
 int servoZenit = 78;
 int scanSx = 177;
 int scanDx = 1;
+int goTime = 280;
+int cont_rot = 0;
+int cont_max = 4;
 
 void setup() {
   
@@ -88,6 +106,7 @@ void loop() {
   while(!scanColor()){ //Controllo se il robot è posizionato a terra con i sensori IR
     
     scanWall(); //Avvia la scansione delle pareti
+    delay(100); //Attesa per la stabilizzazione delle tensioni (anti rimbalzo)
     
   }
 
@@ -103,9 +122,9 @@ void loop() {
 //Metodo per far muovere il robot in avanti
 void goRobot(){
 
-  //A causa delle diverse resistenze elettriche dei motori, il movimento di destra è meno agevolato quindi va data più potenza per ottenere un movimento perpendicolare alle pareti
+  //A causa delle diverse resistenze elettriche dei motori, il movimento dei motori di destra è meno agevolato quindi va data più potenza per ottenere un movimento perpendicolare alle pareti
   int potenzaDx = 200;
-  int potenzaSx = 160;
+  int potenzaSx = 155;
 
   motorDriver.setForwardMove(motorDX_en1, motorDX_en2);
   motorDriver.setForwardMove(motorSX_en1, motorSX_en2);
@@ -182,54 +201,72 @@ boolean scanColor(){
 
 //Metodo per gestire la scansione delle pareti del labirinto
 void scanWall(){
+  
+  //Fermo il robot
+  stopRobot();
+  delay(100);
 
   //Acquisisco il valore del sensore ad ultra suoni
   unsigned int sensor_value = sonar.ping(); // Send ping, get ping time in microseconds (uS).
   unsigned int distance = sensor_value / US_ROUNDTRIP_CM;
   delay(60); //Attende per elaborare la risposta del sonar
 
-  //Controllo se il valore è oltre il limite consentito per il movimento
-  if(distance <= LIMIT && distance > 0){
+  //Controllo se la parete dx non è libera
+  if(scanLateral(scanDx)){
 
-    //Fermo il robot
-    stopRobot();
-    delay(100);
+    //Controllo se il valore è oltre il limite consentito per il movimento
+    if(distance <= LIMIT && distance > 0){
 
-    //Controllo se la parete dx non è libera
-    if(scanLateral(scanDx)){
       
       //Controlla se la parete sx non è libera
       if(scanLateral(scanSx)){
-
+  
         //Vicolo cieco, faccio girare il robot su se stesso
         servoDriver.write(servoZenit);
         goBackRobot();
         
       }
       else{
-
+  
         //"L" verso sinistra
-        /* La regola vorrebbe che il robot si girasse su se stesso per poi ricontrollare se,
-           questo porterebbe successivamente comunque ad andare a sinistra quindi effettuo una predizione migliorando l'algoritmo andando direttamente a sinistra*/
+        /* L'algoritmo originale vorrebbe che il robot si girasse su se stesso per poi ricontrollare se andare a destra o meno,
+           questo porterebbe successivamente comunque ad andare a sinistra quindi effettuo una predizione migliorando l'algoritmo andando direttamente a sinistra */
         servoDriver.write(servoZenit);
         goSXRobot();
+        goRobot();
+        delay(goTime*(cont_max/2));
         
       }
+    
     }
+    
     else{
-
-      //"T" o "L" verso destra
-      servoDriver.write(servoZenit);
-      goDXRobot();
       
+      //Vado avanti
+      servoDriver.write(servoZenit);
+      goRobot();
+      delay(goTime/2);
+
     }
-        
+    
   }
   else{
 
-    //Via libera, va avanti
+    //Vado a destra
     servoDriver.write(servoZenit);
-    goRobot();
+    //Faccio girare immediatamente solo se sono andato un po' avanti prima oppure se c'è un ostacolo davanti
+    if((cont_rot >= cont_max) || (distance <= LIMIT && distance > 0)){
+      goDXRobot();
+      cont_rot = 0;
+      //Proseguo un po'
+      goRobot();
+      delay(goTime*(cont_max/2));
+    }
+    else{//Altrimenti avanzo
+      goRobot();
+      delay(goTime/2);
+      cont_rot++;
+    }
     
   }
   
