@@ -75,13 +75,14 @@ L298NDRIVER motorDriver;
 Servo servoDriver;
 
 //Variabili per la regolazione delle rotazioni dei motori
-int rotateTime = 600;
+int rotateTime = 610;
 int servoZenit = 78;
 int scanSx = 177;
 int scanDx = 1;
-int goTime = 280;
+int goTime = 330;
 int cont_rot = 0;
 int cont_max = 4;
+  int k_rot_sx = 4;
 
 void setup() {
   
@@ -124,7 +125,7 @@ void goRobot(){
 
   //A causa delle diverse resistenze elettriche dei motori, il movimento dei motori di destra è meno agevolato quindi va data più potenza per ottenere un movimento perpendicolare alle pareti
   int potenzaDx = 200;
-  int potenzaSx = 155;
+  int potenzaSx = 150;
 
   motorDriver.setForwardMove(motorDX_en1, motorDX_en2);
   motorDriver.setForwardMove(motorSX_en1, motorSX_en2);
@@ -166,13 +167,14 @@ void goDXRobot(){
 void goSXRobot(){
 
   int potenza = 230;
+  int rotateSXTime = rotateTime + (rotateTime*k_rot_sx/100);
 
   motorDriver.setRotateSX(motorSX_en1, motorSX_en2, motorDX_en1, motorDX_en2);
   
   motorDriver.setPower(motorDX_pw, potenza);
   motorDriver.setPower(motorSX_pw, potenza);
 
-  delay(rotateTime);
+  delay(rotateSXTime);
   
 }
 
