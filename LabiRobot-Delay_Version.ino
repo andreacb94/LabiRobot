@@ -67,7 +67,7 @@
 #define servoMotor 10
 
 #define MAX_DISTANCE 60 // Distanza massima da scansionare (in centimetri). Il sensore copre distanze massime attorno ai 400-500cm.
-#define LIMIT 40 // Distanza limite per fermare il robot prima che colpisca una parete
+#define LIMIT 30 // Distanza limite per fermare il robot prima che colpisca una parete
 
 //Drivers
 NewPing sonar(ultraS_trigger, ultraS_echo, MAX_DISTANCE);
