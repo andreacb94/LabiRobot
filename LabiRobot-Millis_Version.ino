@@ -65,9 +65,9 @@
 #define motorDX_en2 5
 #define servoMotor 10
 
-#define MAX_DISTANCE 220 // Distanza massima da scansionare (in centimetri). Il sensore copre distanze massime attorno ai 400-500cm.
+#define MAX_DISTANCE 250 // Distanza massima da scansionare (in centimetri). Il sensore copre distanze massime attorno ai 400-500cm.
 #define LIMIT 40 // Distanza limite per fermare il robot prima che colpisca una parete
-#define LIMIT_FRONT 17 // Distanza limite per fermare il robot prima che colpisca una parete
+#define LIMIT_FRONT 18 // Distanza limite per fermare il robot prima che colpisca una parete
 
 //Drivers
 NewPing sonar(ultraS_trigger, ultraS_echo, MAX_DISTANCE);
@@ -79,7 +79,8 @@ Servo servoDriver;
 * CARICA SINGOLA 1,35-1,36V
 * CARICA TOTALE 8,16V
 * 
-* CARICA TOTALE DI SETTAGGIO 8,12V
+* CARICA TOTALE DI SETTAGGIO VECCHIO 8,12V
+* CARICA TOTALE DI SETTAGGIO NUOVO 8,20V
 
 * CARICA TOTALE SINGOLA 1,31-1,33V
 * CARICA TOTALE ATTUALE 7,98V
@@ -92,14 +93,19 @@ Servo servoDriver;
 //Variabili per la regolazione delle rotazioni dei motori
 int rotateTime = 458; //a batterie cariche
 //int rotateTime = 610; //a batterie scariche
-int servoZenit = 78;
-int scanSx = 177;
-int scanDx = 1;
-int goTime = 272; //Delay = Spazio/0,46 --> goTime = delay/2 --> goTime = (250/0,46)/2
+int servoZenit = 82;
+int scanSx = 178;
+int scanDx = 0;
+//int goTime = 272; //Delay = Spazio/0,46 --> goTime = delay/2 --> goTime = (250/0,46)/2
+int goTime = 264; //Delay = Spazio/0,46 --> goTime = delay/2 --> goTime = (250/0,46)/2
+//int goTime = 320; //Delay = Spazio/0,46 --> goTime = delay/2 --> goTime = (250/0,46)/2
 int cont_rot = 0;
 int cont_max = 4;
-int k_rot_sx = 4;
-int k_rot_dx = 9;
+//int k_rot_sx = 4; //CARICA TOTALE DI SETTAGGIO 8,12V
+int k_rot_sx = 6; //CARICA TOTALE DI SETTAGGIO 8,06V
+int k_rot_dx = 9; //CARICA TOTALE DI SETTAGGIO 8,03V
+//int k_rot_dx = 5; //CARICA TOTALE DI SETTAGGIO 8,14V
+//int k_rot_dx = 8; //CARICA TOTALE DI SETTAGGIO 8,06V
 int offsetDx = 0;
 int offsetSx = 0;
 int fattoreBatteria = 0;
@@ -135,8 +141,8 @@ void setup() {
 
 void loop() {
 
-  while(true){ //Controllo se il robot è posizionato a terra con i sensori IR
-  //while(!scanColor()){ //Controllo se il robot è posizionato a terra con i sensori IR
+  //while(true){ //Controllo se il robot è posizionato a terra con i sensori IR
+  while(!scanColor()){ //Controllo se il robot è posizionato a terra con i sensori IR
     
     scanWall(); //Avvia la scansione delle pareti
     delay(100); //Attesa per la stabilizzazione delle tensioni (anti rimbalzo)
@@ -193,7 +199,7 @@ void goDXRobot(){
 
   int potenza = 230;
   int rotateDXTime = rotateTime + (rotateTime*k_rot_dx/100);
-
+  
   motorDriver.setRotateDX(motorSX_en1, motorSX_en2, motorDX_en1, motorDX_en2);
   
   motorDriver.setPower(motorDX_pw, potenza);
@@ -222,8 +228,11 @@ void goSXRobot(){
 //Metodo per far muovere il robot verso destra a batterie cariche
 void goBackRobot2(){
 
+  //int k_batterie = 80; //8.12V
+  int k_batterie = 60; //8.06V
+  
   int potenza = 230;
-  int rotateDXTime = (rotateTime + (rotateTime*k_rot_dx/100)) *2 -80;
+  int rotateDXTime = (rotateTime + (rotateTime*k_rot_dx/100)) *2 -k_batterie; //8.06V
 
   motorDriver.setRotateDX(motorSX_en1, motorSX_en2, motorDX_en1, motorDX_en2);
   
@@ -275,6 +284,8 @@ void scanWall(){
   if(distanceFront <= LIMIT_FRONT){
 //  if(distanceFront <= LIMIT_FRONT && distanceFront > 0){
 
+    cont_rot = 0; //Resetto il conteggio dell'avanzamento prima di girare a destra
+        
     //Controllo se la parete dx non è libera
     if(scanLateral(true, scanDx)){
   
