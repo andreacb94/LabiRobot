@@ -75,12 +75,16 @@
 
 /*** COSTANTI ***/
 #define rotationTime_base 610
-#define goTime_base 272
 #define k_rot_sx_base 6
 #define k_rot_dx_base 9
-#define goDX_base 640
-#define goSX_base 635
-#define goBack_base 1200
+#define goTime_base 260
+#define goDX_base 476
+#define goSX_base 476
+#define goBack_base 872
+#define k_goTime 8.041385
+#define k_goDX 8.080588
+#define k_goSX 8.114118
+#define k_goBack 8.144725
 
 //Drivers
 NewPing sonar(ultraS_trigger, ultraS_echo, MAX_DISTANCE);
@@ -107,7 +111,7 @@ Servo servoDriver;
 int rotateTime = rotationTime_base; //a batterie cariche
 //int rotateTime = 610; //a batterie scariche
 int servoZenit = 82;
-int scanSx = 178;
+int scanSx = 177;
 int scanDx = 0;
 //int goTime = 272; //Delay = Spazio/0,46 --> goTime = delay/2 --> goTime = (250/0,46)/2
 int goTime = goTime_base; //Delay = Spazio/0,46 --> goTime = delay/2 --> goTime = (250/0,46)/2
@@ -122,7 +126,7 @@ int k_rot_dx = k_rot_dx_base; //CARICA TOTALE DI SETTAGGIO 8,03V
 int offsetDx = 0;
 int offsetSx = 0;
 float baseBatteria = 8.2; //8,2 Volt
-float deltaBatteria = 0;
+float valueBatteria = 0;
 int fattoreBatteria = 0;
 
 //Millis settings
@@ -218,8 +222,7 @@ void goDXRobot(){
 
   int potenza = 230;
   //int rotateDXTime = rotateTime + (rotateTime*k_rot_dx/100);
-  float k = 1.000638;
-  int rotateDXTime = goDX_base + deltaFactor(goDX_base, k);
+  int rotateDXTime = dipendentValue(goDX_base, k_goDX);
   
   motorDriver.setRotateDX(motorSX_en1, motorSX_en2, motorDX_en1, motorDX_en2);
   
@@ -236,8 +239,7 @@ void goSXRobot(){
 
   int potenza = 230;
   //int rotateSXTime = rotateTime + (rotateTime*k_rot_sx/100);
-  float k = 1.060415;
-  int rotateSXTime = goSX_base + deltaFactor(goSX_base, k);
+  int rotateSXTime = dipendentValue(goSX_base, k_goSX);
 
   motorDriver.setRotateSX(motorSX_en1, motorSX_en2, motorDX_en1, motorDX_en2);
   
@@ -256,8 +258,7 @@ void goBackRobot2(){
   
   int potenza = 230;
   //int rotateDXTime = (rotateTime + (rotateTime*k_rot_dx/100)) *2 -k_batterie; //8.06V
-  float k = 0.991597;
-  int rotateBackTime = goBack_base + deltaFactor(goBack_base, k);
+  int rotateBackTime = dipendentValue(goBack_base, k_goBack);
 
   motorDriver.setRotateDX(motorSX_en1, motorSX_en2, motorDX_en1, motorDX_en2);
   
@@ -283,11 +284,11 @@ void goBackRobot(){
 
 /*** LOGICA PER LA RISOLUZIONE DEI LABIRINTI ***/
 
-float deltaFactor(int base, float k){
+float dipendentValue(int base, float k){
 
-  float delta = base * deltaBatteria * k;
+  float newValue = base * k /valueBatteria;
   
-  return delta;
+  return newValue;
   
 }
 
@@ -307,7 +308,8 @@ void scanVoltage(){
   //Acquisisco il valore del sensore
   int value = analogRead(battery_v);
   float volt = (value * 2 * 4.9) / 1000; //Volt
-  deltaBatteria = baseBatteria - volt;
+  valueBatteria = volt;
+  goTime = dipendentValue(goTime_base, k_goTime);
   
 }
 
