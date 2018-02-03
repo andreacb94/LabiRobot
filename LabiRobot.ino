@@ -81,10 +81,10 @@
 #define goDX_base 476
 #define goSX_base 476
 #define goBack_base 872
-#define k_goTime 8.041385
-#define k_goDX 8.080588
-#define k_goSX 8.114118
-#define k_goBack 8.144725
+#define k_goTime 8.102769
+#define k_goDX 9.019412
+#define k_goSX 8.801471
+#define k_goBack 9.059862
 
 //Drivers
 NewPing sonar(ultraS_trigger, ultraS_echo, MAX_DISTANCE);
@@ -117,7 +117,8 @@ int scanDx = 0;
 int goTime = goTime_base; //Delay = Spazio/0,46 --> goTime = delay/2 --> goTime = (250/0,46)/2
 //int goTime = 320; //Delay = Spazio/0,46 --> goTime = delay/2 --> goTime = (250/0,46)/2
 int cont_rot = 0;
-int cont_max = 4;
+//int cont_max = 4;
+int cont_max = 3;
 //int k_rot_sx = 4; //CARICA TOTALE DI SETTAGGIO 8,12V
 int k_rot_sx = k_rot_sx_base; //CARICA TOTALE DI SETTAGGIO 8,06V
 int k_rot_dx = k_rot_dx_base; //CARICA TOTALE DI SETTAGGIO 8,03V
@@ -125,8 +126,8 @@ int k_rot_dx = k_rot_dx_base; //CARICA TOTALE DI SETTAGGIO 8,03V
 //int k_rot_dx = 8; //CARICA TOTALE DI SETTAGGIO 8,06V
 int offsetDx = 0;
 int offsetSx = 0;
-float baseBatteria = 8.2; //8,2 Volt
-float valueBatteria = 0;
+double baseBatteria = 8.2; //8,2 Volt
+double valueBatteria = 0;
 int fattoreBatteria = 0;
 
 //Millis settings
@@ -165,13 +166,11 @@ void loop() {
   //while(true){ //Controllo se il robot è posizionato a terra con i sensori IR
   while(!scanColor()){ //Controllo se il robot è posizionato a terra con i sensori IR
 
-    scanVoltage(); //Controllo la carica della batteria
-    delay(50);  //Attesa per la stabilizzazione delle tensioni
     scanWall(); //Avvia la scansione delle pareti
-    delay(100); //Attesa per la stabilizzazione delle tensioni (anti rimbalzo)
+    delay(200); //Attesa per la stabilizzazione delle tensioni (anti rimbalzo)
     
   }
-
+  
   //Se il robot non è posizionato a terra lo fermo
   servoDriver.write(servoZenit);
   stopRobot();
@@ -284,9 +283,9 @@ void goBackRobot(){
 
 /*** LOGICA PER LA RISOLUZIONE DEI LABIRINTI ***/
 
-float dipendentValue(int base, float k){
+double dipendentValue(int base, double k){
 
-  float newValue = base * k /valueBatteria;
+  double newValue = base * k /valueBatteria;
   
   return newValue;
   
@@ -307,7 +306,8 @@ void scanVoltage(){
 
   //Acquisisco il valore del sensore
   int value = analogRead(battery_v);
-  float volt = (value * 2 * 4.9) / 1000; //Volt
+  delay(100);
+  double volt = ((value + 1) * 2 * 4.9) / 1000; //Volt
   valueBatteria = volt;
   goTime = dipendentValue(goTime_base, k_goTime);
   
@@ -320,7 +320,9 @@ void scanWall(){
   //Fermo il robot
   stopRobot();
   delay(100);
-  
+  scanVoltage(); //Controllo la carica della batteria
+  delay(100);
+    
   //Acquisisco il valore del sensore ad ultra suoni
   sensor_value = sonar.ping(); // Send ping, get ping time in microseconds (uS).
   distanceFront = sensor_value / US_ROUNDTRIP_CM;
@@ -352,7 +354,7 @@ void scanWall(){
         servoDriver.write(servoZenit);
         goSXRobot();
         goRobot();
-        delay(goTime);
+        delay(goTime/2);
         
       }
       
@@ -366,7 +368,7 @@ void scanWall(){
       cont_rot = 0;
       //Proseguo un po'
       goRobot();
-      delay(goTime);
+      delay(goTime/2);
       
     }
 
@@ -376,7 +378,7 @@ void scanWall(){
 
     //Controllo se la parete dx non è libera
     if(scanLateral(true, scanDx)){
-  
+  /*
       //Controlla se la parete sx non è libera
       if(scanLateral(false, scanSx)){
 
@@ -399,11 +401,11 @@ void scanWall(){
   
           }
           
-        }
+        } 
       }
       else{
         regolaSterzo(2);
-      }
+      }*/
 
     }
     else{
@@ -417,7 +419,7 @@ void scanWall(){
         cont_rot = 0;
         //Proseguo un po'
         goRobot();
-        delay(goTime);
+        delay(goTime/2);
         //delay(2*goTime);
       }
       else{//Altrimenti avanzo
