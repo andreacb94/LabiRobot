@@ -81,15 +81,15 @@
 #define LIMIT 40 // Distanza limite per fermare il robot prima che colpisca una parete laterale
 #define LIMIT_FRONT 18 // Distanza limite per fermare il robot prima che colpisca la parete frontale
 //Per gli spostamenti
-#define cont_max 3
-#define goTime_base 260
-#define goDX_base 476
-#define goSX_base 476
-#define goBack_base 872
-#define k_goTime 8.102769
-#define k_goDX 9.019412
-#define k_goSX 8.801471
-#define k_goBack 9.059862
+#define cont_max 4
+#define goTime_base 230
+#define goDX_base 466
+#define goSX_base 466
+#define goBack_base 860
+#define k_goTime 8.118783
+#define k_goDX 8.801471
+#define k_goSX 8.717647
+#define k_goBack 8.950046
 //Per il servo motore
 #define servoZenit 82
 #define servoSX 177
@@ -136,21 +136,19 @@ void setup() {
 }
 
 void loop() {
-
+  
   while(!scanColor()){ //Controllo se il robot è posizionato a terra con i sensori IR
     
     stopRobot();//Fermo il robot
     delay(100);//Attesa per la stabilizzazione delle tensioni (anti rimbalzo)
     scanVoltage();//Controllo la carica della batteria
-    delay(100);//Attesa per la stabilizzazione delle tensioni (anti rimbalzo)
     scanWall(); //Avvia la scansione delle pareti
-    delay(100);//Attesa per la stabilizzazione delle tensioni (anti rimbalzo)
     
   }
   
-  //Se il robot non è posizionato a terra lo fermo prima di ricontrollare
-  servoDriver.write(servoZenit);
-  stopRobot();
+  //Se il robot non è posizionato a terra lo fermo per 2 secondi prima di ricontrollare
+  stopRobot();//Fermo il robot
+  servoDriver.write(servoZenit); //Posiziono il sensore allo zenit
   delay(2000);
 
 }
@@ -248,12 +246,12 @@ double dipendentValue(int base, double k){
 //Metodo per controllare il livello di tensione della batteria
 void scanVoltage(){
 
-  //Acquisisco il valore del sensore
-  int value = analogRead(battery_v);
-  delay(100); //Anti rimbalzo
+  double offset = 0.05;
   
-  double volt = ((value + 1) * 2 * 4.9) / 1000; //Conversione in Volt
+  int value = analogRead(battery_v); //Acquisisco il valore del sensore
+  double volt = offset + (((value) * 2 * 4.9) / 1000); //Conversione in Volt
   valueBatteria = volt; //Salvataggio
+  
   goTime = dipendentValue(goTime_base, k_goTime); //Retroazione
   
 }
@@ -272,36 +270,17 @@ boolean scanColor(){
 
 //Metodo per gestire la scansione delle pareti del labirinto
 void scanWall(){
-
-/*** TEST ***
-  sensor_value = sonar.ping(); //Acquisisco il valore del sensore ad ultra suoni
-  distanceFront = sensor_value / US_ROUNDTRIP_CM;
-  delay(100); //Attende per elaborare la risposta del sonar
-
-  //Controllo se la parete frontale non è libera
-  if(distanceFront <= LIMIT_FRONT)
-
-*/
   
   //Controllo se la parete frontale non è libera
-  if(scanLateral2(servoZenit)){
+  if(scanLateral(servoZenit)){
 
     cont_rot = 0; //Resetto il conteggio dell'avanzamento prima di girare a destra
 
-    /*** TEST ***
     //Controllo se la parete dx non è libera
-    if(scanLateral(true, servoDX)){
+    if(scanLateral(servoDX)){
   
       //Controlla se la parete sx non è libera
-      if(scanLateral(false, servoSX)){
-
-        */
-        
-    //Controllo se la parete dx non è libera
-    if(scanLateral2(servoDX)){
-  
-      //Controlla se la parete sx non è libera
-      if(scanLateral2(servoSX)){
+      if(scanLateral(servoSX)){
         
         //Vicolo cieco, faccio girare il robot su se stesso
         servoDriver.write(servoZenit);
@@ -318,7 +297,7 @@ void scanWall(){
         servoDriver.write(servoZenit);
         goSXRobot();
         goRobot();
-        delay(goTime/2);
+        delay(goTime);
         
       }
       
@@ -331,7 +310,7 @@ void scanWall(){
       goDXRobot();
       //Proseguo un po'
       goRobot();
-      delay(goTime/2);
+      delay(goTime);
       
     }
 
@@ -339,12 +318,8 @@ void scanWall(){
   
   else{
 
-    /***TEST ***
     //Controllo se la parete dx è libera
-    if(!scanLateral(true, servoDX)){
-    */
-    //Controllo se la parete dx è libera
-    if(!scanLateral2(servoDX)){
+    if(!scanLateral(servoDX)){
     
       //Vado a destra
       servoDriver.write(servoZenit);
@@ -355,7 +330,7 @@ void scanWall(){
         cont_rot = 0;
         //Proseguo un po'
         goRobot();
-        delay(goTime/2);
+        delay(goTime);
 
       }
       else //Altrimenti proseguo
@@ -368,34 +343,12 @@ void scanWall(){
   //Vado avanti
   servoDriver.write(servoZenit);
   goRobot();
-  delay(goTime/2);
+  delay(goTime);
   
 }
 
 //Metodo per controllare le pareti laterali
-boolean scanLateral(boolean side, int rotation){
-
-  //Ruota la testa del robot
-  servoDriver.write(rotation);
-  delay(1000); //Da il tempo alla testa di girare
-  //Scansiona
-  sensor_value = sonar.ping();
-  unsigned int distance = sensor_value / US_ROUNDTRIP_CM;
-  if(side)
-    distanceRight = distance;
-  else
-    distanceLeft = distance;
-  delay(100); //Attende per elaborare la risposta del sonar
-
-  return (distance <= LIMIT  && distance > 0);
-
-}
-
-/*** TEST ***/
-
-
-//Metodo per controllare le pareti laterali
-boolean scanLateral2(int rotation){
+boolean scanLateral(int rotation){
   
   unsigned int values[] = {0,0,0};
   unsigned int tmp = 0;
@@ -407,13 +360,13 @@ boolean scanLateral2(int rotation){
 
   //Ruota la testa del robot
   servoDriver.write(rotation);
-  delay(1000); //Da il tempo alla testa di girare
+  delay(500); //Da il tempo alla testa di girare
 
   //Scansiona 3 volte e per trovare la mediana
   for(int i = 0; i < array_dimens; i++){
-    
-    values[i] = sonar.ping();
+
     delay(100);
+    values[i] = sonar.ping();
     
     if(i == 0){
       minimo = values[i];
@@ -466,10 +419,9 @@ boolean scanLateral2(int rotation){
   sensor_value = values[1];
   
   unsigned int distance = sensor_value / US_ROUNDTRIP_CM;
-  delay(100);
 
   if(rotation == servoZenit)
-    return (distance <= LIMIT);
+    return (distance <= LIMIT_FRONT);
   else
     return (distance <= LIMIT  && distance > 0);
   
@@ -477,6 +429,70 @@ boolean scanLateral2(int rotation){
 
 /*** DEPRECATED ***
 
+//Metodo per controllare le pareti laterali
+boolean scanLateral(boolean side, int rotation){
+
+  //Ruota la testa del robot
+  servoDriver.write(rotation);
+  delay(1000); //Da il tempo alla testa di girare
+  //Scansiona
+  sensor_value = sonar.ping();
+  unsigned int distance = sensor_value / US_ROUNDTRIP_CM;
+  if(side)
+    distanceRight = distance;
+  else
+    distanceLeft = distance;
+  delay(100); //Attende per elaborare la risposta del sonar
+
+  return (distance <= LIMIT  && distance > 0);
+
+}
+
+//Metodo per inizializzare la comunicazione Seriale
+void startSerial(){
+  
+  Serial.begin(9600);
+  delay(1000);
+  Serial.println("*** START ***");
+  
+}
+
+//Metodo per stampare a video sul monitor seriale il valore dela tensione delle pile
+void printVolt(){
+
+  scanVoltage();
+
+  Serial.println();
+  Serial.println("**********************");
+  Serial.println();
+  Serial.print("Volt: ");
+  Serial.print(valueBatteria);
+  Serial.println("V");
+  Serial.println();
+  Serial.println("**********************");
+  Serial.println();
+  
+}
+
+void printValues(unsigned int a[], int l){
+
+  Serial.println();
+  Serial.println("**********************");
+  Serial.println();
+  Serial.print("[");
+  for(int i = 0; i < l; i++){
+    Serial.print(a[i]);
+    if(i != l-1)
+      Serial.print(";");
+  }
+  Serial.println("]");
+  Serial.println();
+  Serial.println("**********************");
+  Serial.println();
+  
+}
+
+//Metodo per la regolazione automatica della traiettoria
 void regolaSterzo(int side){
 
   int c = 5;
