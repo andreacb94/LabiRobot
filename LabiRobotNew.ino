@@ -216,7 +216,7 @@ void goSXRobot(){
 }
 
 //Metodo per far girare su se stesso il robot
-void goBackRobot2(){
+void goBackRobot(){
 
   int k_batterie = 60;
   
@@ -284,7 +284,7 @@ void scanWall(){
         
         //Vicolo cieco, faccio girare il robot su se stesso
         servoDriver.write(servoZenit);
-        goBackRobot2();
+        goBackRobot();
         
       }
       else{
@@ -360,7 +360,7 @@ boolean scanLateral(int rotation){
 
   //Ruota la testa del robot
   servoDriver.write(rotation);
-  delay(500); //Da il tempo alla testa di girare
+  delay(1000); //Da il tempo alla testa di girare
 
   //Scansiona 3 volte e per trovare la mediana
   for(int i = 0; i < array_dimens; i++){
