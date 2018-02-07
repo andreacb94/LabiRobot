@@ -1,10 +1,11 @@
 /* 29/10/2017 Created by Andrea Petrella */
-/* Programma per la gestione di un robot capace di uscire automaticamente da un labirinto.*/
-/* SCHEMA DI FUNZIONAMENTO:
+/* Programma per la gestione di un robot capace di uscire automaticamente da un labirinto aciclico.*/
+
+/* SCHEMA DI FUNZIONAMENTO (SCHEMA A BLOCCHI con dettaglio):
 
   ARDUINO
   -> DC MOTORS controllati con modulo "L298N"
-    --> 4 MOTORI PER IL MOVIMENTO DELLE RUOTE CONTROLLATI A 2 A 2 PER LATO
+  --> 4 MOTORI PER IL MOVIMENTO DELLE RUOTE CONTROLLATI A 2 A 2 PER LATO
   -> MICRO SERVO MOTOR MODEL "SG90"
     --> 1 MOTORE PER MUOVERE DI 180° IL SENSORE AD ULTRASUONI
   -> ULTRASOUND SENSOR MODEL "HC-SR04"
@@ -35,9 +36,40 @@
 
 */
 
+/** PROBLEMA DI RICERCA **
+ *  
+ *  DEFINIZIONE = "TROVARE L'USCITA DEL LABIRINTO"
+ *  STATO INIZIALE = "START"
+ *  GOAL = "EXIT"
+ *  INSIEME DEGLI STATI = {ogni punto P tale che: "P è un incrocio" ^ "P è un punto del labirinto"} U {"START"; "EXIT"}
+ *  FUNZIONE DI COSTO = N.D.
+ *  
+ *  AZIONI = {"ANDARE AVANTI"; "SVOLTARE A DESTRA"; "RIGIRARSI"}
+ *  AZIONI_ESTESO = AZIONI U {"SVOLTARE A SINISTRA"}
+ *  
+ *  PROPRIETA' DEL DOMINIO DEI LABIRINTI:
+ *  
+ *  - LABIRINTO ACICLICO
+ *  - ESISTENZA DI ALMENO UNA SOLUZIONE
+ *  
+ *  ***************************************
+ *  
+ * * RISOLUZIONE DEL PROBLEMA DI RICERCA **
+ *  
+ *  E' possibile astrarre ogni labirinto proposto all'Agente Razionale tramite un Albero di Ricerca.
+ *  
+ *  L'Automa ripropone con i suoi movimenti una visita Forward di Profondità DFS dell'Albero di Ricerca con uso di Backtracking.
+ *  L'Agente Razionale utilizza una Ricerca Online in quanto non conosce a priori i nodi dell'Albero di ricerca ma li scopre al momento dell'esplorazione del labirinto.
+ *  
+ *  La scelta dell'algoritmo DFS Backtracking è giustificata dalla scarsa capacità di memoria del sistema di elaborazione utilizzato.
+ *  
+ */
+
 /* ALGORITMO DI FUNZIONAMENTO
 
-  Il robot può uscire da un labirinto applicando il seguente algoritmo:
+  Concretizzazione della visita dell'Albero di Ricerca a livello fisico/umano
+
+  Il robot può uscire da un labirinto aciclico applicando il seguente algoritmo:
 
   Inizio
   - Se la parete a destra è libera
@@ -50,7 +82,8 @@
   - Se si è raggiunta l'uscita
   --  Fine
   - Altrimenti
-  --  Ripetere
+  --  Ripetere la verifica
+
   
 */
 
@@ -291,8 +324,17 @@ void scanWall(){
   
         //"L" verso sinistra
         /* L'algoritmo originale vorrebbe che il robot si girasse su se stesso per poi ricontrollare se andare a destra o meno,
-         * questo porterebbe successivamente comunque ad andare a sinistra quindi effettuo una predizione
-         * migliorando l'algoritmo andando direttamente a sinistra */
+         * questo porterebbe successivamente comunque ad andare a sinistra,
+         * quindi effettuo una predizione migliorando l'algoritmo andando direttamente a sinistra.
+         * 
+         * Analizzando l'angolo di rotazione, avremmo: 
+         * -- DX = -90°
+         * -- BACK = +180°
+         * -- SX = +90°
+         * 
+         * POSIZIONE_FINALE = INIZIO + BACK + DX = INIZIO + 180° + (-90°) = INIZIO + (180° -90°) = INIZIO + 90° = INIZIO + SX
+         * 
+         */
          
         servoDriver.write(servoZenit);
         goSXRobot();
@@ -426,6 +468,8 @@ boolean scanLateral(int rotation){
     return (distance <= LIMIT  && distance > 0);
   
 }
+
+
 
 /*** DEPRECATED ***
 
