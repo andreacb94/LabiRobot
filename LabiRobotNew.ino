@@ -59,9 +59,10 @@
  *  E' possibile astrarre ogni labirinto proposto all'Agente Razionale tramite un Albero di Ricerca.
  *  
  *  L'Automa ripropone con i suoi movimenti una visita Forward di Profondità DFS dell'Albero di Ricerca con uso di Backtracking.
- *  L'Agente Razionale utilizza una Ricerca Online in quanto non conosce a priori i nodi dell'Albero di ricerca ma li scopre al momento dell'esplorazione del labirinto.
+ *  L'Agente Razionale utilizza una Ricerca Online in quanto non conosce a priori i nodi dell'Albero di ricerca
+ *  ma li scopre al momento dell'esplorazione del labirinto.
  *  
- *  La scelta dell'algoritmo DFS Backtracking è giustificata dalla scarsa capacità di memoria del sistema di elaborazione utilizzato.
+ *  La scelta dell'algoritmo DFS Backtracking è giustificata dalla scarsa capacità di memoria del sistema di elaborazione.
  *  
  */
 
@@ -87,6 +88,18 @@
   
 */
 
+/** ARCHITETTURA ROBOTICA **
+ *  
+ *  UTILIZZO DELLO SCHEMA REATTIVO (S-A) CON UNA uPIANIFICAZIONE
+ *  
+ *  SENSE:  ACQUISIZIONE DEI VALORI DELL'AMBIENTE
+ *  
+ *  uPLANE: SCELTA DELLA VIA DI FUGA
+ *  
+ *  ACT:    SPOSTAMENTO VERSO LA VIA DI FUGA SELEZIONATA
+ *  
+ */
+
 //Inclusione delle librerie
 #include <NewPing.h>
 #include <L298NDRIVER.h> //Libreria creata da me. Serve a gestire i motori DC con la scheda integrata L298N
@@ -110,7 +123,7 @@
 /*** COSTANTI ***/
 
 //Per la scansione dell'ambiente
-#define MAX_DISTANCE 250 // Distanza massima da scansionare (in centimetri). Il sensore copre distanze massime attorno ai 400-500cm.
+#define MAX_DISTANCE 250 // Distanza massima da scansionare (in centimetri). Il sensore copre distanze massime attorno ai 500cm.
 #define LIMIT 40 // Distanza limite per fermare il robot prima che colpisca una parete laterale
 #define LIMIT_FRONT 18 // Distanza limite per fermare il robot prima che colpisca la parete frontale
 //Per gli spostamenti
@@ -457,7 +470,9 @@ boolean scanLateral(int rotation){
     //else {M,x,m} ok
   }
 
-  //Calcolo la mediana (dalla statistica: la mediana tra n valori, con n dispari, è l'elemento centrale della collezzione ordinata degli n valori)
+  /*Calcolo la mediana
+    (dalla statistica: la mediana tra n valori, con n dispari, è l'elemento centrale della collezzione ordinata degli n valori)
+    */
   sensor_value = values[1];
   
   unsigned int distance = sensor_value / US_ROUNDTRIP_CM;

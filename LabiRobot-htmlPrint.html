@@ -1,0 +1,581 @@
+<pre>
+<font color="#95a5a6">&#47;* 29&#47;10&#47;2017 Created by Andrea Petrella *&#47;</font>
+<font color="#95a5a6">&#47;* Programma per la gestione di un robot capace di uscire automaticamente da un labirinto aciclico.*&#47;</font>
+
+<font color="#95a5a6">&#47;* SCHEMA DI FUNZIONAMENTO (SCHEMA A BLOCCHI con dettaglio):</font>
+<font color="#95a5a6"></font>
+<font color="#95a5a6"> &nbsp;ARDUINO</font>
+<font color="#95a5a6"> &nbsp;-&gt; DC MOTORS controllati con modulo &#34;L298N&#34;</font>
+<font color="#95a5a6"> &nbsp;--&gt; 4 MOTORI PER IL MOVIMENTO DELLE RUOTE CONTROLLATI A 2 A 2 PER LATO</font>
+<font color="#95a5a6"> &nbsp;-&gt; MICRO SERVO MOTOR MODEL &#34;SG90&#34;</font>
+<font color="#95a5a6"> &nbsp;&nbsp;&nbsp;--&gt; 1 MOTORE PER MUOVERE DI 180° IL SENSORE AD ULTRASUONI</font>
+<font color="#95a5a6"> &nbsp;-&gt; ULTRASOUND SENSOR MODEL &#34;HC-SR04&#34;</font>
+<font color="#95a5a6"> &nbsp;&nbsp;&nbsp;--&gt; SENSORE PER VERIFICARE LA PRESENZA DI UN OSTACOLO</font>
+<font color="#95a5a6"> &nbsp;-&gt; IR LINE FIELDS SENSOR</font>
+<font color="#95a5a6"> &nbsp;&nbsp;&nbsp;--&gt; 3 SENSORI PER IDENTIFICARE LA FINE DEL PERCORSO</font>
+<font color="#95a5a6"> &nbsp;-&gt; BATTERY VOLTAGE SENSOR</font>
+<font color="#95a5a6"> &nbsp;&nbsp;&nbsp;--&gt; INPUT ANALOGICO</font>
+<font color="#95a5a6"></font>
+<font color="#95a5a6">*&#47;</font>
+<font color="#95a5a6">&#47;* SCHEMA DI CONNESSIONE</font>
+<font color="#95a5a6"></font>
+<font color="#95a5a6"> &nbsp;INPUT</font>
+<font color="#95a5a6"> &nbsp;-&gt; ULTRASOUND SENSOR ECHO &nbsp;&nbsp;&nbsp;&nbsp;- pin &nbsp;8</font>
+<font color="#95a5a6"> &nbsp;-&gt; ULTRASOUND SENSOR TRIGGER &nbsp;- pin &nbsp;9</font>
+<font color="#95a5a6"> &nbsp;-&gt; IR SENSOR 1 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- pin A3</font>
+<font color="#95a5a6"> &nbsp;-&gt; IR SENSOR 2 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- pin A4</font>
+<font color="#95a5a6"> &nbsp;-&gt; IR SENSOR 3 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- pin A5</font>
+<font color="#95a5a6"> &nbsp;-&gt; BATTERY VOLTAGE SENSOR &nbsp;&nbsp;&nbsp;&nbsp;- pin A2</font>
+<font color="#95a5a6"> &nbsp;OUTPUT</font>
+<font color="#95a5a6"> &nbsp;-&gt; DC DX MOTORS PW &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- pin 11</font>
+<font color="#95a5a6"> &nbsp;-&gt; DC DX MOTORS EN1 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- pin 12</font>
+<font color="#95a5a6"> &nbsp;-&gt; DC DX MOTORS EN2 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- pin 13</font>
+<font color="#95a5a6"> &nbsp;-&gt; DC SX MOTORS PW &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- pin &nbsp;6</font>
+<font color="#95a5a6"> &nbsp;-&gt; DC SX MOTORS EN3 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- pin &nbsp;4</font>
+<font color="#95a5a6"> &nbsp;-&gt; DC SX MOTORS EN4 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- pin &nbsp;5</font>
+<font color="#95a5a6"> &nbsp;-&gt; SERVO MOTOR &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- pin 10</font>
+<font color="#95a5a6"></font>
+<font color="#95a5a6">*&#47;</font>
+
+<font color="#95a5a6">&#47;** PROBLEMA DI RICERCA **</font>
+<font color="#95a5a6"> * &nbsp;</font>
+<font color="#95a5a6"> * &nbsp;DEFINIZIONE = &#34;TROVARE L&#39;USCITA DEL LABIRINTO&#34;</font>
+<font color="#95a5a6"> * &nbsp;STATO INIZIALE = &#34;START&#34;</font>
+<font color="#95a5a6"> * &nbsp;GOAL = &#34;EXIT&#34;</font>
+<font color="#95a5a6"> * &nbsp;INSIEME DEGLI STATI = {ogni punto P tale che: &#34;P è un incrocio&#34; ^ &#34;P è un punto del labirinto&#34;} U {&#34;START&#34;; &#34;EXIT&#34;}</font>
+<font color="#95a5a6"> * &nbsp;FUNZIONE DI COSTO = N.D.</font>
+<font color="#95a5a6"> * &nbsp;</font>
+<font color="#95a5a6"> * &nbsp;AZIONI = {&#34;ANDARE AVANTI&#34;; &#34;SVOLTARE A DESTRA&#34;; &#34;RIGIRARSI&#34;}</font>
+<font color="#95a5a6"> * &nbsp;AZIONI_ESTESO = AZIONI U {&#34;SVOLTARE A SINISTRA&#34;}</font>
+<font color="#95a5a6"> * &nbsp;</font>
+<font color="#95a5a6"> * &nbsp;PROPRIETA&#39; DEL DOMINIO DEI LABIRINTI:</font>
+<font color="#95a5a6"> * &nbsp;</font>
+<font color="#95a5a6"> * &nbsp;- LABIRINTO ACICLICO</font>
+<font color="#95a5a6"> * &nbsp;- ESISTENZA DI ALMENO UNA SOLUZIONE</font>
+<font color="#95a5a6"> * &nbsp;</font>
+<font color="#95a5a6"> * &nbsp;***************************************</font>
+<font color="#95a5a6"> * &nbsp;</font>
+<font color="#95a5a6"> * * RISOLUZIONE DEL PROBLEMA DI RICERCA **</font>
+<font color="#95a5a6"> * &nbsp;</font>
+<font color="#95a5a6"> * &nbsp;E&#39; possibile astrarre ogni labirinto proposto all&#39;Agente Razionale tramite un Albero di Ricerca.</font>
+<font color="#95a5a6"> * &nbsp;</font>
+<font color="#95a5a6"> * &nbsp;L&#39;Automa ripropone con i suoi movimenti una visita Forward di Profondità DFS dell&#39;Albero di Ricerca con uso di Backtracking.</font>
+<font color="#95a5a6"> * &nbsp;L&#39;Agente Razionale utilizza una Ricerca Online in quanto non conosce a priori i nodi dell&#39;Albero di ricerca</font>
+<font color="#95a5a6"> * &nbsp;ma li scopre al momento dell&#39;esplorazione del labirinto.</font>
+<font color="#95a5a6"> * &nbsp;</font>
+<font color="#95a5a6"> * &nbsp;La scelta dell&#39;algoritmo DFS Backtracking è giustificata dalla scarsa capacità di memoria del sistema di elaborazione.</font>
+<font color="#95a5a6"> * &nbsp;</font>
+<font color="#95a5a6"> *&#47;</font>
+
+<font color="#95a5a6">&#47;* ALGORITMO DI FUNZIONAMENTO</font>
+<font color="#95a5a6"></font>
+<font color="#95a5a6"> &nbsp;Concretizzazione della visita dell&#39;Albero di Ricerca a livello fisico&#47;umano</font>
+<font color="#95a5a6"></font>
+<font color="#95a5a6"> &nbsp;Il robot può uscire da un labirinto aciclico applicando il seguente algoritmo:</font>
+<font color="#95a5a6"></font>
+<font color="#95a5a6"> &nbsp;Inizio</font>
+<font color="#95a5a6"> &nbsp;- Se la parete a destra è libera</font>
+<font color="#95a5a6"> &nbsp;-- &nbsp;Svoltare a destra</font>
+<font color="#95a5a6"> &nbsp;- Altrimenti</font>
+<font color="#95a5a6"> &nbsp;-- &nbsp;Se la parete frontale è libera</font>
+<font color="#95a5a6"> &nbsp;--- &nbsp;&nbsp;Proseguire in avanti</font>
+<font color="#95a5a6"> &nbsp;-- &nbsp;Altrimenti</font>
+<font color="#95a5a6"> &nbsp;--- &nbsp;&nbsp;Rigirarsi</font>
+<font color="#95a5a6"> &nbsp;- Se si è raggiunta l&#39;uscita</font>
+<font color="#95a5a6"> &nbsp;-- &nbsp;Fine</font>
+<font color="#95a5a6"> &nbsp;- Altrimenti</font>
+<font color="#95a5a6"> &nbsp;-- &nbsp;Ripetere la verifica</font>
+<font color="#95a5a6"></font>
+<font color="#95a5a6"> &nbsp;</font>
+<font color="#95a5a6">*&#47;</font>
+
+<font color="#95a5a6">&#47;** ARCHITETTURA ROBOTICA **</font>
+<font color="#95a5a6"> * &nbsp;</font>
+<font color="#95a5a6"> * &nbsp;UTILIZZO DELLO SCHEMA REATTIVO (S-A) CON UNA uPIANIFICAZIONE</font>
+<font color="#95a5a6"> * &nbsp;</font>
+<font color="#95a5a6"> * &nbsp;SENSE: &nbsp;ACQUISIZIONE DEI VALORI DELL&#39;AMBIENTE</font>
+<font color="#95a5a6"> * &nbsp;</font>
+<font color="#95a5a6"> * &nbsp;uPLANE: SCELTA DELLA VIA DI FUGA</font>
+<font color="#95a5a6"> * &nbsp;</font>
+<font color="#95a5a6"> * &nbsp;ACT: &nbsp;&nbsp;&nbsp;SPOSTAMENTO VERSO LA VIA DI FUGA SELEZIONATA</font>
+<font color="#95a5a6"> * &nbsp;</font>
+<font color="#95a5a6"> *&#47;</font>
+
+<font color="#434f54">&#47;&#47;Inclusione delle librerie</font>
+<font color="#5e6d03">#include</font> <font color="#434f54">&lt;</font><b><font color="#d35400">NewPing</font></b><font color="#434f54">.</font><font color="#000000">h</font><font color="#434f54">&gt;</font>
+<font color="#5e6d03">#include</font> <font color="#434f54">&lt;</font><b><font color="#d35400">L298NDRIVER</font></b><font color="#434f54">.</font><font color="#000000">h</font><font color="#434f54">&gt;</font> <font color="#434f54">&#47;&#47;Libreria creata da me. Serve a gestire i motori DC con la scheda integrata L298N</font>
+<font color="#5e6d03">#include</font> <font color="#434f54">&lt;</font><b><font color="#d35400">Servo</font></b><font color="#434f54">.</font><font color="#000000">h</font><font color="#434f54">&gt;</font>
+
+<font color="#434f54">&#47;&#47;Definizione dei PIN</font>
+<font color="#5e6d03">#define</font> <font color="#000000">ultraS_echo</font> <font color="#000000">8</font>
+<font color="#5e6d03">#define</font> <font color="#000000">ultraS_trigger</font> <font color="#000000">9</font>
+<font color="#5e6d03">#define</font> <font color="#000000">ir_1</font> <font color="#000000">A3</font>
+<font color="#5e6d03">#define</font> <font color="#000000">ir_2</font> <font color="#000000">A4</font>
+<font color="#5e6d03">#define</font> <font color="#000000">ir_3</font> <font color="#000000">A5</font>
+<font color="#5e6d03">#define</font> <font color="#000000">battery_v</font> <font color="#000000">A2</font>
+<font color="#5e6d03">#define</font> <font color="#000000">motorSX_pw</font> <font color="#000000">11</font>
+<font color="#5e6d03">#define</font> <font color="#000000">motorSX_en1</font> <font color="#000000">12</font>
+<font color="#5e6d03">#define</font> <font color="#000000">motorSX_en2</font> <font color="#000000">13</font>
+<font color="#5e6d03">#define</font> <font color="#000000">motorDX_pw</font> <font color="#000000">6</font>
+<font color="#5e6d03">#define</font> <font color="#000000">motorDX_en1</font> <font color="#000000">4</font>
+<font color="#5e6d03">#define</font> <font color="#000000">motorDX_en2</font> <font color="#000000">5</font>
+<font color="#5e6d03">#define</font> <font color="#000000">servoMotor</font> <font color="#000000">10</font>
+
+<font color="#95a5a6">&#47;*** COSTANTI ***&#47;</font>
+
+<font color="#434f54">&#47;&#47;Per la scansione dell&#39;ambiente</font>
+<font color="#5e6d03">#define</font> <font color="#000000">MAX_DISTANCE</font> <font color="#000000">250</font> <font color="#434f54">&#47;&#47; Distanza massima da scansionare (in centimetri). Il sensore copre distanze massime attorno ai 500cm.</font>
+<font color="#5e6d03">#define</font> <font color="#000000">LIMIT</font> <font color="#000000">40</font> <font color="#434f54">&#47;&#47; Distanza limite per fermare il robot prima che colpisca una parete laterale</font>
+<font color="#5e6d03">#define</font> <font color="#000000">LIMIT_FRONT</font> <font color="#000000">18</font> <font color="#434f54">&#47;&#47; Distanza limite per fermare il robot prima che colpisca la parete frontale</font>
+<font color="#434f54">&#47;&#47;Per gli spostamenti</font>
+<font color="#5e6d03">#define</font> <font color="#000000">cont_max</font> <font color="#000000">4</font>
+<font color="#5e6d03">#define</font> <font color="#000000">goTime_base</font> <font color="#000000">230</font>
+<font color="#5e6d03">#define</font> <font color="#000000">goDX_base</font> <font color="#000000">466</font>
+<font color="#5e6d03">#define</font> <font color="#000000">goSX_base</font> <font color="#000000">466</font>
+<font color="#5e6d03">#define</font> <font color="#000000">goBack_base</font> <font color="#000000">860</font>
+<font color="#5e6d03">#define</font> <font color="#000000">k_goTime</font> <font color="#000000">8.118783</font>
+<font color="#5e6d03">#define</font> <font color="#000000">k_goDX</font> <font color="#000000">8.801471</font>
+<font color="#5e6d03">#define</font> <font color="#000000">k_goSX</font> <font color="#000000">8.717647</font>
+<font color="#5e6d03">#define</font> <font color="#000000">k_goBack</font> <font color="#000000">8.950046</font>
+<font color="#434f54">&#47;&#47;Per il servo motore</font>
+<font color="#5e6d03">#define</font> <font color="#000000">servoZenit</font> <font color="#000000">82</font>
+<font color="#5e6d03">#define</font> <font color="#000000">servoSX</font> <font color="#000000">177</font>
+<font color="#5e6d03">#define</font> <font color="#000000">servoDX</font> <font color="#000000">0</font>
+
+<font color="#95a5a6">&#47;*** VARIABILI ***&#47;</font>
+
+<font color="#434f54">&#47;&#47;Drivers</font>
+<b><font color="#d35400">NewPing</font></b> <font color="#000000">sonar</font><font color="#000000">(</font><font color="#000000">ultraS_trigger</font><font color="#434f54">,</font> <font color="#000000">ultraS_echo</font><font color="#434f54">,</font> <font color="#000000">MAX_DISTANCE</font><font color="#000000">)</font><font color="#000000">;</font>
+<b><font color="#d35400">L298NDRIVER</font></b> <font color="#000000">motorDriver</font><font color="#000000">;</font>
+<b><font color="#d35400">Servo</font></b> <font color="#000000">servoDriver</font><font color="#000000">;</font>
+
+<font color="#434f54">&#47;&#47;Tensione della batteira</font>
+<font color="#00979c">double</font> <font color="#000000">valueBatteria</font> <font color="#434f54">=</font> <font color="#000000">0</font><font color="#000000">;</font>
+<font color="#434f54">&#47;&#47;Variabili per la regolazione delle rotazioni dei motori</font>
+<font color="#00979c">int</font> <font color="#000000">goTime</font> <font color="#434f54">=</font> <font color="#000000">goTime_base</font><font color="#000000">;</font>
+<font color="#00979c">int</font> <font color="#000000">cont_rot</font> <font color="#434f54">=</font> <font color="#000000">0</font><font color="#000000">;</font>
+<font color="#434f54">&#47;&#47;Distanze dalle pareti</font>
+<font color="#00979c">unsigned</font> <font color="#00979c">int</font> <font color="#000000">sensor_value</font> <font color="#434f54">=</font> <font color="#000000">0</font><font color="#000000">;</font> <font color="#434f54">&#47;&#47; in microsecondi (uS).</font>
+<font color="#00979c">unsigned</font> <font color="#00979c">int</font> <font color="#000000">distanceFront</font> <font color="#434f54">=</font> <font color="#000000">0</font><font color="#000000">;</font>
+<font color="#00979c">unsigned</font> <font color="#00979c">int</font> <font color="#000000">distanceRight</font> <font color="#434f54">=</font> <font color="#000000">0</font><font color="#000000">;</font>
+<font color="#00979c">unsigned</font> <font color="#00979c">int</font> <font color="#000000">distanceLeft</font> <font color="#434f54">=</font> <font color="#000000">0</font><font color="#000000">;</font>
+
+
+<font color="#00979c">void</font> <font color="#5e6d03">setup</font><font color="#000000">(</font><font color="#000000">)</font> <font color="#000000">{</font>
+
+ &nbsp;<font color="#434f54">&#47;&#47;Setup del controller dei motori</font>
+ &nbsp;<font color="#d35400">pinMode</font><font color="#000000">(</font><font color="#000000">motorSX_en1</font><font color="#434f54">,</font> <font color="#00979c">OUTPUT</font><font color="#000000">)</font><font color="#000000">;</font> <font color="#434f54">&#47;&#47;output perche&#39; definisce lo stato logico del pin IN1 del modulo L298N</font>
+ &nbsp;<font color="#d35400">pinMode</font><font color="#000000">(</font><font color="#000000">motorSX_en2</font><font color="#434f54">,</font> <font color="#00979c">OUTPUT</font><font color="#000000">)</font><font color="#000000">;</font> <font color="#434f54">&#47;&#47;output perche&#39; definisce lo stato logico del pin IN1 del modulo L298N</font>
+ &nbsp;<font color="#d35400">pinMode</font><font color="#000000">(</font><font color="#000000">motorDX_en1</font><font color="#434f54">,</font> <font color="#00979c">OUTPUT</font><font color="#000000">)</font><font color="#000000">;</font> <font color="#434f54">&#47;&#47;output perche&#39; definisce lo stato logico del pin IN2 del modulo L298N</font>
+ &nbsp;<font color="#d35400">pinMode</font><font color="#000000">(</font><font color="#000000">motorDX_en2</font><font color="#434f54">,</font> <font color="#00979c">OUTPUT</font><font color="#000000">)</font><font color="#000000">;</font> <font color="#434f54">&#47;&#47;output perche&#39; definisce lo stato logico del pin IN2 del modulo L298N</font>
+ &nbsp;<font color="#d35400">pinMode</font><font color="#000000">(</font><font color="#000000">motorSX_pw</font><font color="#434f54">,</font> <font color="#00979c">OUTPUT</font><font color="#000000">)</font><font color="#000000">;</font> &nbsp;<font color="#434f54">&#47;&#47;output perche&#39; definisce il valore PWM del pin ENA del modulo L298N</font>
+ &nbsp;<font color="#d35400">pinMode</font><font color="#000000">(</font><font color="#000000">motorDX_pw</font><font color="#434f54">,</font> <font color="#00979c">OUTPUT</font><font color="#000000">)</font><font color="#000000">;</font> &nbsp;<font color="#434f54">&#47;&#47;output perche&#39; definisce il valore PWM del pin ENB del modulo L298N</font>
+
+ &nbsp;<font color="#d35400">pinMode</font><font color="#000000">(</font><font color="#000000">battery_v</font><font color="#434f54">,</font> <font color="#00979c">INPUT</font><font color="#000000">)</font><font color="#000000">;</font> &nbsp;<font color="#434f54">&#47;&#47;sensore di tensione della batteria</font>
+
+ &nbsp;<font color="#434f54">&#47;&#47;Attivo il driver del servo motore e lo posiziono allo zenit</font>
+ &nbsp;<font color="#000000">servoDriver</font><font color="#434f54">.</font><font color="#d35400">attach</font><font color="#000000">(</font><font color="#000000">servoMotor</font><font color="#000000">)</font><font color="#000000">;</font>
+ &nbsp;<font color="#000000">servoDriver</font><font color="#434f54">.</font><font color="#d35400">write</font><font color="#000000">(</font><font color="#000000">servoZenit</font><font color="#000000">)</font><font color="#000000">;</font>
+ &nbsp;
+ &nbsp;<font color="#000000">stopRobot</font><font color="#000000">(</font><font color="#000000">)</font><font color="#000000">;</font> <font color="#434f54">&#47;&#47;Fermo i motori</font>
+ &nbsp;<font color="#d35400">delay</font><font color="#000000">(</font><font color="#000000">3000</font><font color="#000000">)</font><font color="#000000">;</font> <font color="#434f54">&#47;&#47;Aspetta prima di iniziare il programma</font>
+
+<font color="#000000">}</font>
+
+<font color="#00979c">void</font> <font color="#5e6d03">loop</font><font color="#000000">(</font><font color="#000000">)</font> <font color="#000000">{</font>
+ &nbsp;
+ &nbsp;<font color="#5e6d03">while</font><font color="#000000">(</font><font color="#434f54">!</font><font color="#000000">scanColor</font><font color="#000000">(</font><font color="#000000">)</font><font color="#000000">)</font><font color="#000000">{</font> <font color="#434f54">&#47;&#47;Controllo se il robot è posizionato a terra con i sensori IR</font>
+ &nbsp;&nbsp;&nbsp;
+ &nbsp;&nbsp;&nbsp;<font color="#000000">stopRobot</font><font color="#000000">(</font><font color="#000000">)</font><font color="#000000">;</font><font color="#434f54">&#47;&#47;Fermo il robot</font>
+ &nbsp;&nbsp;&nbsp;<font color="#d35400">delay</font><font color="#000000">(</font><font color="#000000">100</font><font color="#000000">)</font><font color="#000000">;</font><font color="#434f54">&#47;&#47;Attesa per la stabilizzazione delle tensioni (anti rimbalzo)</font>
+ &nbsp;&nbsp;&nbsp;<font color="#000000">scanVoltage</font><font color="#000000">(</font><font color="#000000">)</font><font color="#000000">;</font><font color="#434f54">&#47;&#47;Controllo la carica della batteria</font>
+ &nbsp;&nbsp;&nbsp;<font color="#000000">scanWall</font><font color="#000000">(</font><font color="#000000">)</font><font color="#000000">;</font> <font color="#434f54">&#47;&#47;Avvia la scansione delle pareti</font>
+ &nbsp;&nbsp;&nbsp;
+ &nbsp;<font color="#000000">}</font>
+ &nbsp;
+ &nbsp;<font color="#434f54">&#47;&#47;Se il robot non è posizionato a terra lo fermo per 2 secondi prima di ricontrollare</font>
+ &nbsp;<font color="#000000">stopRobot</font><font color="#000000">(</font><font color="#000000">)</font><font color="#000000">;</font><font color="#434f54">&#47;&#47;Fermo il robot</font>
+ &nbsp;<font color="#000000">servoDriver</font><font color="#434f54">.</font><font color="#d35400">write</font><font color="#000000">(</font><font color="#000000">servoZenit</font><font color="#000000">)</font><font color="#000000">;</font> <font color="#434f54">&#47;&#47;Posiziono il sensore allo zenit</font>
+ &nbsp;<font color="#d35400">delay</font><font color="#000000">(</font><font color="#000000">2000</font><font color="#000000">)</font><font color="#000000">;</font>
+
+<font color="#000000">}</font>
+
+<font color="#95a5a6">&#47;*** METODI DRIVER PER GLI ATTUATORI ***&#47;</font>
+
+<font color="#434f54">&#47;&#47;Metodo per far muovere il robot in avanti</font>
+<font color="#00979c">void</font> <font color="#000000">goRobot</font><font color="#000000">(</font><font color="#000000">)</font><font color="#000000">{</font>
+
+ &nbsp;<font color="#95a5a6">&#47;* A causa delle diverse resistenze elettriche dei motori, il movimento dei motori di destra è meno agevolato</font>
+<font color="#95a5a6"> &nbsp;&nbsp;* quindi va data più potenza per ottenere un movimento perpendicolare alle pareti *&#47;</font>
+ &nbsp;<font color="#00979c">int</font> <font color="#000000">potenzaDx</font> <font color="#434f54">=</font> <font color="#000000">212</font><font color="#000000">;</font>
+ &nbsp;<font color="#00979c">int</font> <font color="#000000">potenzaSx</font> <font color="#434f54">=</font> <font color="#000000">150</font><font color="#000000">;</font>
+
+ &nbsp;<font color="#000000">motorDriver</font><font color="#434f54">.</font><font color="#d35400">setForwardMove</font><font color="#000000">(</font><font color="#000000">motorDX_en1</font><font color="#434f54">,</font> <font color="#000000">motorDX_en2</font><font color="#000000">)</font><font color="#000000">;</font>
+ &nbsp;<font color="#000000">motorDriver</font><font color="#434f54">.</font><font color="#d35400">setForwardMove</font><font color="#000000">(</font><font color="#000000">motorSX_en1</font><font color="#434f54">,</font> <font color="#000000">motorSX_en2</font><font color="#000000">)</font><font color="#000000">;</font>
+ &nbsp;
+ &nbsp;<font color="#000000">motorDriver</font><font color="#434f54">.</font><font color="#d35400">setPower</font><font color="#000000">(</font><font color="#000000">motorDX_pw</font><font color="#434f54">,</font> <font color="#000000">potenzaDx</font><font color="#000000">)</font><font color="#000000">;</font>
+ &nbsp;<font color="#000000">motorDriver</font><font color="#434f54">.</font><font color="#d35400">setPower</font><font color="#000000">(</font><font color="#000000">motorSX_pw</font><font color="#434f54">,</font> <font color="#000000">potenzaSx</font><font color="#000000">)</font><font color="#000000">;</font>
+ &nbsp;
+<font color="#000000">}</font>
+
+<font color="#434f54">&#47;&#47;Metodo per fermare il robot</font>
+<font color="#00979c">void</font> <font color="#000000">stopRobot</font><font color="#000000">(</font><font color="#000000">)</font><font color="#000000">{</font>
+
+ &nbsp;<font color="#00979c">int</font> <font color="#000000">potenza</font> <font color="#434f54">=</font> <font color="#000000">0</font><font color="#000000">;</font>
+ &nbsp;
+ &nbsp;<font color="#434f54">&#47;&#47;Blocco i motori delle ruote</font>
+ &nbsp;<font color="#000000">motorDriver</font><font color="#434f54">.</font><font color="#d35400">stopMotor</font><font color="#000000">(</font><font color="#000000">motorDX_en1</font><font color="#434f54">,</font> <font color="#000000">motorDX_en2</font><font color="#000000">)</font><font color="#000000">;</font>
+ &nbsp;<font color="#000000">motorDriver</font><font color="#434f54">.</font><font color="#d35400">stopMotor</font><font color="#000000">(</font><font color="#000000">motorSX_en1</font><font color="#434f54">,</font> <font color="#000000">motorSX_en2</font><font color="#000000">)</font><font color="#000000">;</font>
+ &nbsp;
+ &nbsp;<font color="#000000">motorDriver</font><font color="#434f54">.</font><font color="#d35400">setPower</font><font color="#000000">(</font><font color="#000000">motorDX_pw</font><font color="#434f54">,</font> <font color="#000000">potenza</font><font color="#000000">)</font><font color="#000000">;</font>
+ &nbsp;<font color="#000000">motorDriver</font><font color="#434f54">.</font><font color="#d35400">setPower</font><font color="#000000">(</font><font color="#000000">motorSX_pw</font><font color="#434f54">,</font> <font color="#000000">potenza</font><font color="#000000">)</font><font color="#000000">;</font>
+
+<font color="#000000">}</font>
+
+<font color="#434f54">&#47;&#47;Metodo per far muovere il robot verso destra</font>
+<font color="#00979c">void</font> <font color="#000000">goDXRobot</font><font color="#000000">(</font><font color="#000000">)</font><font color="#000000">{</font>
+
+ &nbsp;<font color="#00979c">int</font> <font color="#000000">potenza</font> <font color="#434f54">=</font> <font color="#000000">230</font><font color="#000000">;</font>
+ &nbsp;<font color="#00979c">int</font> <font color="#000000">rotateDXTime</font> <font color="#434f54">=</font> <font color="#000000">dipendentValue</font><font color="#000000">(</font><font color="#000000">goDX_base</font><font color="#434f54">,</font> <font color="#000000">k_goDX</font><font color="#000000">)</font><font color="#000000">;</font>
+ &nbsp;
+ &nbsp;<font color="#000000">motorDriver</font><font color="#434f54">.</font><font color="#d35400">setRotateDX</font><font color="#000000">(</font><font color="#000000">motorSX_en1</font><font color="#434f54">,</font> <font color="#000000">motorSX_en2</font><font color="#434f54">,</font> <font color="#000000">motorDX_en1</font><font color="#434f54">,</font> <font color="#000000">motorDX_en2</font><font color="#000000">)</font><font color="#000000">;</font>
+ &nbsp;
+ &nbsp;<font color="#000000">motorDriver</font><font color="#434f54">.</font><font color="#d35400">setPower</font><font color="#000000">(</font><font color="#000000">motorDX_pw</font><font color="#434f54">,</font> <font color="#000000">potenza</font><font color="#000000">)</font><font color="#000000">;</font>
+ &nbsp;<font color="#000000">motorDriver</font><font color="#434f54">.</font><font color="#d35400">setPower</font><font color="#000000">(</font><font color="#000000">motorSX_pw</font><font color="#434f54">,</font> <font color="#000000">potenza</font><font color="#000000">)</font><font color="#000000">;</font>
+
+ &nbsp;<font color="#d35400">delay</font><font color="#000000">(</font><font color="#000000">rotateDXTime</font><font color="#000000">)</font><font color="#000000">;</font>
+ &nbsp;
+<font color="#000000">}</font>
+
+<font color="#434f54">&#47;&#47;Metodo per far muovere il robot verso sinistra</font>
+<font color="#00979c">void</font> <font color="#000000">goSXRobot</font><font color="#000000">(</font><font color="#000000">)</font><font color="#000000">{</font>
+
+ &nbsp;<font color="#00979c">int</font> <font color="#000000">potenza</font> <font color="#434f54">=</font> <font color="#000000">230</font><font color="#000000">;</font>
+ &nbsp;<font color="#00979c">int</font> <font color="#000000">rotateSXTime</font> <font color="#434f54">=</font> <font color="#000000">dipendentValue</font><font color="#000000">(</font><font color="#000000">goSX_base</font><font color="#434f54">,</font> <font color="#000000">k_goSX</font><font color="#000000">)</font><font color="#000000">;</font>
+
+ &nbsp;<font color="#000000">motorDriver</font><font color="#434f54">.</font><font color="#d35400">setRotateSX</font><font color="#000000">(</font><font color="#000000">motorSX_en1</font><font color="#434f54">,</font> <font color="#000000">motorSX_en2</font><font color="#434f54">,</font> <font color="#000000">motorDX_en1</font><font color="#434f54">,</font> <font color="#000000">motorDX_en2</font><font color="#000000">)</font><font color="#000000">;</font>
+ &nbsp;
+ &nbsp;<font color="#000000">motorDriver</font><font color="#434f54">.</font><font color="#d35400">setPower</font><font color="#000000">(</font><font color="#000000">motorDX_pw</font><font color="#434f54">,</font> <font color="#000000">potenza</font><font color="#000000">)</font><font color="#000000">;</font>
+ &nbsp;<font color="#000000">motorDriver</font><font color="#434f54">.</font><font color="#d35400">setPower</font><font color="#000000">(</font><font color="#000000">motorSX_pw</font><font color="#434f54">,</font> <font color="#000000">potenza</font><font color="#000000">)</font><font color="#000000">;</font>
+
+ &nbsp;<font color="#d35400">delay</font><font color="#000000">(</font><font color="#000000">rotateSXTime</font><font color="#000000">)</font><font color="#000000">;</font>
+ &nbsp;
+<font color="#000000">}</font>
+
+<font color="#434f54">&#47;&#47;Metodo per far girare su se stesso il robot</font>
+<font color="#00979c">void</font> <font color="#000000">goBackRobot</font><font color="#000000">(</font><font color="#000000">)</font><font color="#000000">{</font>
+
+ &nbsp;<font color="#00979c">int</font> <font color="#000000">k_batterie</font> <font color="#434f54">=</font> <font color="#000000">60</font><font color="#000000">;</font>
+ &nbsp;
+ &nbsp;<font color="#00979c">int</font> <font color="#000000">potenza</font> <font color="#434f54">=</font> <font color="#000000">230</font><font color="#000000">;</font>
+ &nbsp;<font color="#00979c">int</font> <font color="#000000">rotateBackTime</font> <font color="#434f54">=</font> <font color="#000000">dipendentValue</font><font color="#000000">(</font><font color="#000000">goBack_base</font><font color="#434f54">,</font> <font color="#000000">k_goBack</font><font color="#000000">)</font><font color="#000000">;</font>
+
+ &nbsp;<font color="#000000">motorDriver</font><font color="#434f54">.</font><font color="#d35400">setRotateDX</font><font color="#000000">(</font><font color="#000000">motorSX_en1</font><font color="#434f54">,</font> <font color="#000000">motorSX_en2</font><font color="#434f54">,</font> <font color="#000000">motorDX_en1</font><font color="#434f54">,</font> <font color="#000000">motorDX_en2</font><font color="#000000">)</font><font color="#000000">;</font>
+ &nbsp;
+ &nbsp;<font color="#000000">motorDriver</font><font color="#434f54">.</font><font color="#d35400">setPower</font><font color="#000000">(</font><font color="#000000">motorDX_pw</font><font color="#434f54">,</font> <font color="#000000">potenza</font><font color="#000000">)</font><font color="#000000">;</font>
+ &nbsp;<font color="#000000">motorDriver</font><font color="#434f54">.</font><font color="#d35400">setPower</font><font color="#000000">(</font><font color="#000000">motorSX_pw</font><font color="#434f54">,</font> <font color="#000000">potenza</font><font color="#000000">)</font><font color="#000000">;</font>
+ &nbsp;
+ &nbsp;<font color="#d35400">delay</font><font color="#000000">(</font><font color="#000000">rotateBackTime</font><font color="#000000">)</font><font color="#000000">;</font>
+ &nbsp;
+<font color="#000000">}</font>
+
+<font color="#434f54">&#47;&#47;Metodo per adattare i valori del movimento al valore di tensione delle batterie (retroazione)</font>
+<font color="#00979c">double</font> <font color="#000000">dipendentValue</font><font color="#000000">(</font><font color="#00979c">int</font> <font color="#000000">base</font><font color="#434f54">,</font> <font color="#00979c">double</font> <font color="#000000">k</font><font color="#000000">)</font><font color="#000000">{</font>
+
+ &nbsp;<font color="#00979c">double</font> <font color="#000000">newValue</font> <font color="#434f54">=</font> <font color="#000000">base</font> <font color="#434f54">*</font> <font color="#000000">k</font> <font color="#434f54">&#47;</font><font color="#000000">valueBatteria</font><font color="#000000">;</font>
+ &nbsp;
+ &nbsp;<font color="#5e6d03">return</font> <font color="#000000">newValue</font><font color="#000000">;</font>
+ &nbsp;
+<font color="#000000">}</font>
+
+<font color="#95a5a6">&#47;*** GESTIONE DEI SENSORI ***&#47;</font>
+
+<font color="#434f54">&#47;&#47;Metodo per controllare il livello di tensione della batteria</font>
+<font color="#00979c">void</font> <font color="#000000">scanVoltage</font><font color="#000000">(</font><font color="#000000">)</font><font color="#000000">{</font>
+
+ &nbsp;<font color="#00979c">double</font> <font color="#000000">offset</font> <font color="#434f54">=</font> <font color="#000000">0.05</font><font color="#000000">;</font>
+ &nbsp;
+ &nbsp;<font color="#00979c">int</font> <font color="#000000">value</font> <font color="#434f54">=</font> <font color="#d35400">analogRead</font><font color="#000000">(</font><font color="#000000">battery_v</font><font color="#000000">)</font><font color="#000000">;</font> <font color="#434f54">&#47;&#47;Acquisisco il valore del sensore</font>
+ &nbsp;<font color="#00979c">double</font> <font color="#000000">volt</font> <font color="#434f54">=</font> <font color="#000000">offset</font> <font color="#434f54">+</font> <font color="#000000">(</font><font color="#000000">(</font><font color="#000000">(</font><font color="#000000">value</font><font color="#000000">)</font> <font color="#434f54">*</font> <font color="#000000">2</font> <font color="#434f54">*</font> <font color="#000000">4.9</font><font color="#000000">)</font> <font color="#434f54">&#47;</font> <font color="#000000">1000</font><font color="#000000">)</font><font color="#000000">;</font> <font color="#434f54">&#47;&#47;Conversione in Volt</font>
+ &nbsp;<font color="#000000">valueBatteria</font> <font color="#434f54">=</font> <font color="#000000">volt</font><font color="#000000">;</font> <font color="#434f54">&#47;&#47;Salvataggio</font>
+ &nbsp;
+ &nbsp;<font color="#000000">goTime</font> <font color="#434f54">=</font> <font color="#000000">dipendentValue</font><font color="#000000">(</font><font color="#000000">goTime_base</font><font color="#434f54">,</font> <font color="#000000">k_goTime</font><font color="#000000">)</font><font color="#000000">;</font> <font color="#434f54">&#47;&#47;Retroazione</font>
+ &nbsp;
+<font color="#000000">}</font>
+
+<font color="#434f54">&#47;&#47;Metodo per controllare il corretto posizionamento a terra del robot</font>
+<font color="#00979c">boolean</font> <font color="#000000">scanColor</font><font color="#000000">(</font><font color="#000000">)</font><font color="#000000">{</font>
+
+ &nbsp;<font color="#434f54">&#47;&#47;Acquisisco il valore dei sensori IR</font>
+ &nbsp;<font color="#00979c">boolean</font> <font color="#000000">finish</font> <font color="#434f54">=</font> <font color="#d35400">digitalRead</font><font color="#000000">(</font><font color="#000000">ir_1</font><font color="#000000">)</font> <font color="#434f54">&amp;&amp;</font> <font color="#d35400">digitalRead</font><font color="#000000">(</font><font color="#000000">ir_2</font><font color="#000000">)</font> <font color="#434f54">&amp;&amp;</font> <font color="#d35400">digitalRead</font><font color="#000000">(</font><font color="#000000">ir_3</font><font color="#000000">)</font><font color="#000000">;</font>
+ &nbsp;
+ &nbsp;<font color="#5e6d03">return</font> <font color="#000000">finish</font><font color="#000000">;</font>
+ &nbsp;
+<font color="#000000">}</font>
+
+<font color="#95a5a6">&#47;*** LOGICA PER LA RISOLUZIONE DEI LABIRINTI ***&#47;</font>
+
+<font color="#434f54">&#47;&#47;Metodo per gestire la scansione delle pareti del labirinto</font>
+<font color="#00979c">void</font> <font color="#000000">scanWall</font><font color="#000000">(</font><font color="#000000">)</font><font color="#000000">{</font>
+ &nbsp;
+ &nbsp;<font color="#434f54">&#47;&#47;Controllo se la parete frontale non è libera</font>
+ &nbsp;<font color="#5e6d03">if</font><font color="#000000">(</font><font color="#000000">scanLateral</font><font color="#000000">(</font><font color="#000000">servoZenit</font><font color="#000000">)</font><font color="#000000">)</font><font color="#000000">{</font>
+
+ &nbsp;&nbsp;&nbsp;<font color="#000000">cont_rot</font> <font color="#434f54">=</font> <font color="#000000">0</font><font color="#000000">;</font> <font color="#434f54">&#47;&#47;Resetto il conteggio dell&#39;avanzamento prima di girare a destra</font>
+
+ &nbsp;&nbsp;&nbsp;<font color="#434f54">&#47;&#47;Controllo se la parete dx non è libera</font>
+ &nbsp;&nbsp;&nbsp;<font color="#5e6d03">if</font><font color="#000000">(</font><font color="#000000">scanLateral</font><font color="#000000">(</font><font color="#000000">servoDX</font><font color="#000000">)</font><font color="#000000">)</font><font color="#000000">{</font>
+ &nbsp;
+ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<font color="#434f54">&#47;&#47;Controlla se la parete sx non è libera</font>
+ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<font color="#5e6d03">if</font><font color="#000000">(</font><font color="#000000">scanLateral</font><font color="#000000">(</font><font color="#000000">servoSX</font><font color="#000000">)</font><font color="#000000">)</font><font color="#000000">{</font>
+ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<font color="#434f54">&#47;&#47;Vicolo cieco, faccio girare il robot su se stesso</font>
+ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<font color="#000000">servoDriver</font><font color="#434f54">.</font><font color="#d35400">write</font><font color="#000000">(</font><font color="#000000">servoZenit</font><font color="#000000">)</font><font color="#000000">;</font>
+ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<font color="#000000">goBackRobot</font><font color="#000000">(</font><font color="#000000">)</font><font color="#000000">;</font>
+ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<font color="#000000">}</font>
+ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<font color="#5e6d03">else</font><font color="#000000">{</font>
+ &nbsp;
+ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<font color="#434f54">&#47;&#47;&#34;L&#34; verso sinistra</font>
+ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<font color="#95a5a6">&#47;* L&#39;algoritmo originale vorrebbe che il robot si girasse su se stesso per poi ricontrollare se andare a destra o meno,</font>
+<font color="#95a5a6"> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;* questo porterebbe successivamente comunque ad andare a sinistra,</font>
+<font color="#95a5a6"> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;* quindi effettuo una predizione migliorando l&#39;algoritmo andando direttamente a sinistra.</font>
+<font color="#95a5a6"> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;* </font>
+<font color="#95a5a6"> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;* Analizzando l&#39;angolo di rotazione, avremmo: </font>
+<font color="#95a5a6"> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;* -- DX = -90°</font>
+<font color="#95a5a6"> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;* -- BACK = +180°</font>
+<font color="#95a5a6"> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;* -- SX = +90°</font>
+<font color="#95a5a6"> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;* </font>
+<font color="#95a5a6"> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;* POSIZIONE_FINALE = INIZIO + BACK + DX = INIZIO + 180° + (-90°) = INIZIO + (180° -90°) = INIZIO + 90° = INIZIO + SX</font>
+<font color="#95a5a6"> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;* </font>
+<font color="#95a5a6"> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*&#47;</font>
+ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<font color="#000000">servoDriver</font><font color="#434f54">.</font><font color="#d35400">write</font><font color="#000000">(</font><font color="#000000">servoZenit</font><font color="#000000">)</font><font color="#000000">;</font>
+ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<font color="#000000">goSXRobot</font><font color="#000000">(</font><font color="#000000">)</font><font color="#000000">;</font>
+ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<font color="#000000">goRobot</font><font color="#000000">(</font><font color="#000000">)</font><font color="#000000">;</font>
+ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<font color="#d35400">delay</font><font color="#000000">(</font><font color="#000000">goTime</font><font color="#000000">)</font><font color="#000000">;</font>
+ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<font color="#000000">}</font>
+ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+ &nbsp;&nbsp;&nbsp;<font color="#000000">}</font>
+ &nbsp;
+ &nbsp;&nbsp;&nbsp;<font color="#5e6d03">else</font><font color="#000000">{</font>
+ &nbsp;&nbsp;&nbsp;
+ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<font color="#434f54">&#47;&#47;Vado a destra</font>
+ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<font color="#000000">servoDriver</font><font color="#434f54">.</font><font color="#d35400">write</font><font color="#000000">(</font><font color="#000000">servoZenit</font><font color="#000000">)</font><font color="#000000">;</font>
+ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<font color="#000000">goDXRobot</font><font color="#000000">(</font><font color="#000000">)</font><font color="#000000">;</font>
+ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<font color="#434f54">&#47;&#47;Proseguo un po&#39;</font>
+ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<font color="#000000">goRobot</font><font color="#000000">(</font><font color="#000000">)</font><font color="#000000">;</font>
+ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<font color="#d35400">delay</font><font color="#000000">(</font><font color="#000000">goTime</font><font color="#000000">)</font><font color="#000000">;</font>
+ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+ &nbsp;&nbsp;&nbsp;<font color="#000000">}</font>
+
+ &nbsp;<font color="#000000">}</font>
+ &nbsp;
+ &nbsp;<font color="#5e6d03">else</font><font color="#000000">{</font>
+
+ &nbsp;&nbsp;&nbsp;<font color="#434f54">&#47;&#47;Controllo se la parete dx è libera</font>
+ &nbsp;&nbsp;&nbsp;<font color="#5e6d03">if</font><font color="#000000">(</font><font color="#434f54">!</font><font color="#000000">scanLateral</font><font color="#000000">(</font><font color="#000000">servoDX</font><font color="#000000">)</font><font color="#000000">)</font><font color="#000000">{</font>
+ &nbsp;&nbsp;&nbsp;
+ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<font color="#434f54">&#47;&#47;Vado a destra</font>
+ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<font color="#000000">servoDriver</font><font color="#434f54">.</font><font color="#d35400">write</font><font color="#000000">(</font><font color="#000000">servoZenit</font><font color="#000000">)</font><font color="#000000">;</font>
+ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<font color="#434f54">&#47;&#47;Faccio girare immediatamente solo se sono andato un po&#39; avanti prima</font>
+ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<font color="#5e6d03">if</font><font color="#000000">(</font><font color="#000000">(</font><font color="#000000">cont_rot</font> <font color="#434f54">&gt;=</font> <font color="#000000">cont_max</font><font color="#000000">)</font><font color="#000000">)</font><font color="#000000">{</font>
+ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<font color="#000000">goDXRobot</font><font color="#000000">(</font><font color="#000000">)</font><font color="#000000">;</font>
+ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<font color="#000000">cont_rot</font> <font color="#434f54">=</font> <font color="#000000">0</font><font color="#000000">;</font>
+ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<font color="#434f54">&#47;&#47;Proseguo un po&#39;</font>
+ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<font color="#000000">goRobot</font><font color="#000000">(</font><font color="#000000">)</font><font color="#000000">;</font>
+ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<font color="#d35400">delay</font><font color="#000000">(</font><font color="#000000">goTime</font><font color="#000000">)</font><font color="#000000">;</font>
+
+ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<font color="#000000">}</font>
+ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<font color="#5e6d03">else</font> <font color="#434f54">&#47;&#47;Altrimenti proseguo</font>
+ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<font color="#000000">cont_rot</font><font color="#434f54">++</font><font color="#000000">;</font>
+
+ &nbsp;&nbsp;&nbsp;<font color="#000000">}</font>
+
+ &nbsp;<font color="#000000">}</font>
+ &nbsp;
+ &nbsp;<font color="#434f54">&#47;&#47;Vado avanti</font>
+ &nbsp;<font color="#000000">servoDriver</font><font color="#434f54">.</font><font color="#d35400">write</font><font color="#000000">(</font><font color="#000000">servoZenit</font><font color="#000000">)</font><font color="#000000">;</font>
+ &nbsp;<font color="#000000">goRobot</font><font color="#000000">(</font><font color="#000000">)</font><font color="#000000">;</font>
+ &nbsp;<font color="#d35400">delay</font><font color="#000000">(</font><font color="#000000">goTime</font><font color="#000000">)</font><font color="#000000">;</font>
+ &nbsp;
+<font color="#000000">}</font>
+
+<font color="#434f54">&#47;&#47;Metodo per controllare le pareti laterali</font>
+<font color="#00979c">boolean</font> <font color="#000000">scanLateral</font><font color="#000000">(</font><font color="#00979c">int</font> <font color="#000000">rotation</font><font color="#000000">)</font><font color="#000000">{</font>
+ &nbsp;
+ &nbsp;<font color="#00979c">unsigned</font> <font color="#00979c">int</font> <font color="#000000">values</font><font color="#000000">[</font><font color="#000000">]</font> <font color="#434f54">=</font> <font color="#000000">{</font><font color="#000000">0</font><font color="#434f54">,</font><font color="#000000">0</font><font color="#434f54">,</font><font color="#000000">0</font><font color="#000000">}</font><font color="#000000">;</font>
+ &nbsp;<font color="#00979c">unsigned</font> <font color="#00979c">int</font> <font color="#000000">tmp</font> <font color="#434f54">=</font> <font color="#000000">0</font><font color="#000000">;</font>
+ &nbsp;<font color="#00979c">int</font> <font color="#000000">array_dimens</font> <font color="#434f54">=</font> <font color="#000000">3</font><font color="#000000">;</font>
+ &nbsp;<font color="#00979c">int</font> <font color="#000000">minimo</font> <font color="#434f54">=</font> <font color="#000000">0</font><font color="#000000">;</font>
+ &nbsp;<font color="#00979c">int</font> <font color="#000000">massimo</font> <font color="#434f54">=</font> <font color="#000000">0</font><font color="#000000">;</font>
+ &nbsp;<font color="#00979c">int</font> <font color="#000000">index_minimo</font> <font color="#434f54">=</font> <font color="#000000">0</font><font color="#000000">;</font>
+ &nbsp;<font color="#00979c">int</font> <font color="#000000">index_massimo</font> <font color="#434f54">=</font> <font color="#000000">0</font><font color="#000000">;</font>
+
+ &nbsp;<font color="#434f54">&#47;&#47;Ruota la testa del robot</font>
+ &nbsp;<font color="#000000">servoDriver</font><font color="#434f54">.</font><font color="#d35400">write</font><font color="#000000">(</font><font color="#000000">rotation</font><font color="#000000">)</font><font color="#000000">;</font>
+ &nbsp;<font color="#d35400">delay</font><font color="#000000">(</font><font color="#000000">1000</font><font color="#000000">)</font><font color="#000000">;</font> <font color="#434f54">&#47;&#47;Da il tempo alla testa di girare</font>
+
+ &nbsp;<font color="#434f54">&#47;&#47;Scansiona 3 volte e per trovare la mediana</font>
+ &nbsp;<font color="#5e6d03">for</font><font color="#000000">(</font><font color="#00979c">int</font> <font color="#000000">i</font> <font color="#434f54">=</font> <font color="#000000">0</font><font color="#000000">;</font> <font color="#000000">i</font> <font color="#434f54">&lt;</font> <font color="#000000">array_dimens</font><font color="#000000">;</font> <font color="#000000">i</font><font color="#434f54">++</font><font color="#000000">)</font><font color="#000000">{</font>
+
+ &nbsp;&nbsp;&nbsp;<font color="#d35400">delay</font><font color="#000000">(</font><font color="#000000">100</font><font color="#000000">)</font><font color="#000000">;</font>
+ &nbsp;&nbsp;&nbsp;<font color="#000000">values</font><font color="#000000">[</font><font color="#000000">i</font><font color="#000000">]</font> <font color="#434f54">=</font> <font color="#000000">sonar</font><font color="#434f54">.</font><font color="#d35400">ping</font><font color="#000000">(</font><font color="#000000">)</font><font color="#000000">;</font>
+ &nbsp;&nbsp;&nbsp;
+ &nbsp;&nbsp;&nbsp;<font color="#5e6d03">if</font><font color="#000000">(</font><font color="#000000">i</font> <font color="#434f54">==</font> <font color="#000000">0</font><font color="#000000">)</font><font color="#000000">{</font>
+ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<font color="#000000">minimo</font> <font color="#434f54">=</font> <font color="#000000">values</font><font color="#000000">[</font><font color="#000000">i</font><font color="#000000">]</font><font color="#000000">;</font>
+ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<font color="#000000">massimo</font> <font color="#434f54">=</font> <font color="#000000">values</font><font color="#000000">[</font><font color="#000000">i</font><font color="#000000">]</font><font color="#000000">;</font>
+ &nbsp;&nbsp;&nbsp;<font color="#000000">}</font>
+ &nbsp;&nbsp;&nbsp;<font color="#5e6d03">else</font><font color="#000000">{</font>
+ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<font color="#5e6d03">if</font><font color="#000000">(</font><font color="#000000">values</font><font color="#000000">[</font><font color="#000000">i</font><font color="#000000">]</font> <font color="#434f54">&lt;</font> <font color="#000000">minimo</font><font color="#000000">)</font><font color="#000000">{</font>
+ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<font color="#000000">minimo</font> <font color="#434f54">=</font> <font color="#000000">values</font><font color="#000000">[</font><font color="#000000">i</font><font color="#000000">]</font><font color="#000000">;</font>
+ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<font color="#000000">index_minimo</font> <font color="#434f54">=</font> <font color="#000000">i</font><font color="#000000">;</font>
+ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<font color="#000000">}</font>
+ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<font color="#5e6d03">if</font><font color="#000000">(</font><font color="#000000">values</font><font color="#000000">[</font><font color="#000000">i</font><font color="#000000">]</font> <font color="#434f54">&gt;</font> <font color="#000000">massimo</font><font color="#000000">)</font><font color="#000000">{</font>
+ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<font color="#000000">massimo</font> <font color="#434f54">=</font> <font color="#000000">values</font><font color="#000000">[</font><font color="#000000">i</font><font color="#000000">]</font><font color="#000000">;</font>
+ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<font color="#000000">index_massimo</font> <font color="#434f54">=</font> <font color="#000000">i</font><font color="#000000">;</font>
+ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<font color="#000000">}</font>
+ &nbsp;&nbsp;&nbsp;<font color="#000000">}</font>
+ &nbsp;&nbsp;&nbsp;
+ &nbsp;<font color="#000000">}</font>
+
+ &nbsp;<font color="#434f54">&#47;&#47;Ordina</font>
+ &nbsp;<font color="#5e6d03">if</font><font color="#000000">(</font><font color="#000000">index_minimo</font> <font color="#434f54">==</font> <font color="#000000">0</font><font color="#000000">)</font><font color="#000000">{</font>
+ &nbsp;&nbsp;&nbsp;<font color="#5e6d03">if</font><font color="#000000">(</font><font color="#000000">index_massimo</font> <font color="#434f54">==</font> <font color="#000000">1</font><font color="#000000">)</font><font color="#000000">{</font> <font color="#434f54">&#47;&#47; {m,M,x} -&gt; {m,x,M}</font>
+ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<font color="#000000">tmp</font> <font color="#434f54">=</font> <font color="#000000">values</font><font color="#000000">[</font><font color="#000000">2</font><font color="#000000">]</font><font color="#000000">;</font>
+ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<font color="#000000">values</font><font color="#000000">[</font><font color="#000000">2</font><font color="#000000">]</font> <font color="#434f54">=</font> <font color="#000000">massimo</font><font color="#000000">;</font>
+ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<font color="#000000">values</font><font color="#000000">[</font><font color="#000000">1</font><font color="#000000">]</font> <font color="#434f54">=</font> <font color="#000000">tmp</font><font color="#000000">;</font>
+ &nbsp;&nbsp;&nbsp;<font color="#000000">}</font>
+ &nbsp;&nbsp;&nbsp;<font color="#434f54">&#47;&#47;else {m,x,M} ok</font>
+ &nbsp;<font color="#000000">}</font>
+ &nbsp;<font color="#5e6d03">else</font> <font color="#5e6d03">if</font><font color="#000000">(</font><font color="#000000">index_minimo</font> <font color="#434f54">==</font> <font color="#000000">1</font><font color="#000000">)</font><font color="#000000">{</font>
+ &nbsp;&nbsp;&nbsp;<font color="#5e6d03">if</font><font color="#000000">(</font><font color="#000000">index_massimo</font> <font color="#434f54">==</font> <font color="#000000">2</font><font color="#000000">)</font><font color="#000000">{</font> <font color="#434f54">&#47;&#47; {x,m,M} -&gt; {m,x,M}</font>
+ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<font color="#000000">tmp</font> <font color="#434f54">=</font> <font color="#000000">values</font><font color="#000000">[</font><font color="#000000">0</font><font color="#000000">]</font><font color="#000000">;</font>
+ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<font color="#000000">values</font><font color="#000000">[</font><font color="#000000">0</font><font color="#000000">]</font> <font color="#434f54">=</font> <font color="#000000">minimo</font><font color="#000000">;</font>
+ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<font color="#000000">values</font><font color="#000000">[</font><font color="#000000">1</font><font color="#000000">]</font> <font color="#434f54">=</font> <font color="#000000">tmp</font><font color="#000000">;</font>
+ &nbsp;&nbsp;&nbsp;<font color="#000000">}</font>
+ &nbsp;&nbsp;&nbsp;<font color="#5e6d03">else</font><font color="#000000">{</font> <font color="#434f54">&#47;&#47; {M,m,x} -&gt; {M,x,m}</font>
+ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<font color="#000000">tmp</font> <font color="#434f54">=</font> <font color="#000000">values</font><font color="#000000">[</font><font color="#000000">2</font><font color="#000000">]</font><font color="#000000">;</font>
+ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<font color="#000000">values</font><font color="#000000">[</font><font color="#000000">2</font><font color="#000000">]</font> <font color="#434f54">=</font> <font color="#000000">minimo</font><font color="#000000">;</font>
+ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<font color="#000000">values</font><font color="#000000">[</font><font color="#000000">1</font><font color="#000000">]</font> <font color="#434f54">=</font> <font color="#000000">tmp</font><font color="#000000">;</font>
+ &nbsp;&nbsp;&nbsp;<font color="#000000">}</font>
+ &nbsp;<font color="#000000">}</font>
+ &nbsp;<font color="#5e6d03">else</font> <font color="#5e6d03">if</font><font color="#000000">(</font><font color="#000000">index_minimo</font> <font color="#434f54">==</font> <font color="#000000">2</font><font color="#000000">)</font><font color="#000000">{</font>
+ &nbsp;&nbsp;&nbsp;<font color="#5e6d03">if</font><font color="#000000">(</font><font color="#000000">index_massimo</font> <font color="#434f54">==</font> <font color="#000000">1</font><font color="#000000">)</font><font color="#000000">{</font> <font color="#434f54">&#47;&#47; {x,M,m}-&gt;{M,x,m}</font>
+ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<font color="#000000">tmp</font> <font color="#434f54">=</font> <font color="#000000">values</font><font color="#000000">[</font><font color="#000000">0</font><font color="#000000">]</font><font color="#000000">;</font>
+ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<font color="#000000">values</font><font color="#000000">[</font><font color="#000000">0</font><font color="#000000">]</font> <font color="#434f54">=</font> <font color="#000000">massimo</font><font color="#000000">;</font>
+ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<font color="#000000">values</font><font color="#000000">[</font><font color="#000000">1</font><font color="#000000">]</font> <font color="#434f54">=</font> <font color="#000000">tmp</font><font color="#000000">;</font>
+ &nbsp;&nbsp;&nbsp;<font color="#000000">}</font>
+ &nbsp;&nbsp;&nbsp;<font color="#434f54">&#47;&#47;else {M,x,m} ok</font>
+ &nbsp;<font color="#000000">}</font>
+
+ &nbsp;<font color="#95a5a6">&#47;*Calcolo la mediana</font>
+<font color="#95a5a6"> &nbsp;&nbsp;&nbsp;(dalla statistica: la mediana tra n valori, con n dispari, è l&#39;elemento centrale della collezzione ordinata degli n valori)</font>
+<font color="#95a5a6"> &nbsp;&nbsp;&nbsp;*&#47;</font>
+ &nbsp;<font color="#000000">sensor_value</font> <font color="#434f54">=</font> <font color="#000000">values</font><font color="#000000">[</font><font color="#000000">1</font><font color="#000000">]</font><font color="#000000">;</font>
+ &nbsp;
+ &nbsp;<font color="#00979c">unsigned</font> <font color="#00979c">int</font> <font color="#000000">distance</font> <font color="#434f54">=</font> <font color="#000000">sensor_value</font> <font color="#434f54">&#47;</font> <font color="#000000">US_ROUNDTRIP_CM</font><font color="#000000">;</font>
+
+ &nbsp;<font color="#5e6d03">if</font><font color="#000000">(</font><font color="#000000">rotation</font> <font color="#434f54">==</font> <font color="#000000">servoZenit</font><font color="#000000">)</font>
+ &nbsp;&nbsp;&nbsp;<font color="#5e6d03">return</font> <font color="#000000">(</font><font color="#000000">distance</font> <font color="#434f54">&lt;=</font> <font color="#000000">LIMIT_FRONT</font><font color="#000000">)</font><font color="#000000">;</font>
+ &nbsp;<font color="#5e6d03">else</font>
+ &nbsp;&nbsp;&nbsp;<font color="#5e6d03">return</font> <font color="#000000">(</font><font color="#000000">distance</font> <font color="#434f54">&lt;=</font> <font color="#000000">LIMIT</font> &nbsp;<font color="#434f54">&amp;&amp;</font> <font color="#000000">distance</font> <font color="#434f54">&gt;</font> <font color="#000000">0</font><font color="#000000">)</font><font color="#000000">;</font>
+ &nbsp;
+<font color="#000000">}</font>
+
+
+
+<font color="#95a5a6">&#47;*** DEPRECATED ***</font>
+<font color="#95a5a6"></font>
+<font color="#95a5a6">&#47;&#47;Metodo per controllare le pareti laterali</font>
+<font color="#95a5a6">boolean scanLateral(boolean side, int rotation){</font>
+<font color="#95a5a6"></font>
+<font color="#95a5a6"> &nbsp;&#47;&#47;Ruota la testa del robot</font>
+<font color="#95a5a6"> &nbsp;servoDriver.write(rotation);</font>
+<font color="#95a5a6"> &nbsp;delay(1000); &#47;&#47;Da il tempo alla testa di girare</font>
+<font color="#95a5a6"> &nbsp;&#47;&#47;Scansiona</font>
+<font color="#95a5a6"> &nbsp;sensor_value = sonar.ping();</font>
+<font color="#95a5a6"> &nbsp;unsigned int distance = sensor_value &#47; US_ROUNDTRIP_CM;</font>
+<font color="#95a5a6"> &nbsp;if(side)</font>
+<font color="#95a5a6"> &nbsp;&nbsp;&nbsp;distanceRight = distance;</font>
+<font color="#95a5a6"> &nbsp;else</font>
+<font color="#95a5a6"> &nbsp;&nbsp;&nbsp;distanceLeft = distance;</font>
+<font color="#95a5a6"> &nbsp;delay(100); &#47;&#47;Attende per elaborare la risposta del sonar</font>
+<font color="#95a5a6"></font>
+<font color="#95a5a6"> &nbsp;return (distance &lt;= LIMIT &nbsp;&amp;&amp; distance &gt; 0);</font>
+<font color="#95a5a6"></font>
+<font color="#95a5a6">}</font>
+<font color="#95a5a6"></font>
+<font color="#95a5a6">&#47;&#47;Metodo per inizializzare la comunicazione Seriale</font>
+<font color="#95a5a6">void startSerial(){</font>
+<font color="#95a5a6"> &nbsp;</font>
+<font color="#95a5a6"> &nbsp;Serial.begin(9600);</font>
+<font color="#95a5a6"> &nbsp;delay(1000);</font>
+<font color="#95a5a6"> &nbsp;Serial.println(&#34;*** START ***&#34;);</font>
+<font color="#95a5a6"> &nbsp;</font>
+<font color="#95a5a6">}</font>
+<font color="#95a5a6"></font>
+<font color="#95a5a6">&#47;&#47;Metodo per stampare a video sul monitor seriale il valore dela tensione delle pile</font>
+<font color="#95a5a6">void printVolt(){</font>
+<font color="#95a5a6"></font>
+<font color="#95a5a6"> &nbsp;scanVoltage();</font>
+<font color="#95a5a6"></font>
+<font color="#95a5a6"> &nbsp;Serial.println();</font>
+<font color="#95a5a6"> &nbsp;Serial.println(&#34;**********************&#34;);</font>
+<font color="#95a5a6"> &nbsp;Serial.println();</font>
+<font color="#95a5a6"> &nbsp;Serial.print(&#34;Volt: &#34;);</font>
+<font color="#95a5a6"> &nbsp;Serial.print(valueBatteria);</font>
+<font color="#95a5a6"> &nbsp;Serial.println(&#34;V&#34;);</font>
+<font color="#95a5a6"> &nbsp;Serial.println();</font>
+<font color="#95a5a6"> &nbsp;Serial.println(&#34;**********************&#34;);</font>
+<font color="#95a5a6"> &nbsp;Serial.println();</font>
+<font color="#95a5a6"> &nbsp;</font>
+<font color="#95a5a6">}</font>
+<font color="#95a5a6"></font>
+<font color="#95a5a6">void printValues(unsigned int a[], int l){</font>
+<font color="#95a5a6"></font>
+<font color="#95a5a6"> &nbsp;Serial.println();</font>
+<font color="#95a5a6"> &nbsp;Serial.println(&#34;**********************&#34;);</font>
+<font color="#95a5a6"> &nbsp;Serial.println();</font>
+<font color="#95a5a6"> &nbsp;Serial.print(&#34;[&#34;);</font>
+<font color="#95a5a6"> &nbsp;for(int i = 0; i &lt; l; i++){</font>
+<font color="#95a5a6"> &nbsp;&nbsp;&nbsp;Serial.print(a[i]);</font>
+<font color="#95a5a6"> &nbsp;&nbsp;&nbsp;if(i != l-1)</font>
+<font color="#95a5a6"> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Serial.print(&#34;;&#34;);</font>
+<font color="#95a5a6"> &nbsp;}</font>
+<font color="#95a5a6"> &nbsp;Serial.println(&#34;]&#34;);</font>
+<font color="#95a5a6"> &nbsp;Serial.println();</font>
+<font color="#95a5a6"> &nbsp;Serial.println(&#34;**********************&#34;);</font>
+<font color="#95a5a6"> &nbsp;Serial.println();</font>
+<font color="#95a5a6"> &nbsp;</font>
+<font color="#95a5a6">}</font>
+<font color="#95a5a6"></font>
+<font color="#95a5a6">&#47;&#47;Metodo per la regolazione automatica della traiettoria</font>
+<font color="#95a5a6">void regolaSterzo(int side){</font>
+<font color="#95a5a6"></font>
+<font color="#95a5a6"> &nbsp;int c = 5;</font>
+<font color="#95a5a6"> &nbsp;int k = 12;</font>
+<font color="#95a5a6"></font>
+<font color="#95a5a6"> &nbsp;switch(side){</font>
+<font color="#95a5a6"></font>
+<font color="#95a5a6"> &nbsp;&nbsp;&nbsp;&#47;&#47;Vado a DX</font>
+<font color="#95a5a6"> &nbsp;&nbsp;&nbsp;case 0:</font>
+<font color="#95a5a6"> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;offsetDx = -c;</font>
+<font color="#95a5a6"> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;offsetSx = c;</font>
+<font color="#95a5a6"> &nbsp;&nbsp;&nbsp;&#47;&#47;Vado a SX</font>
+<font color="#95a5a6"> &nbsp;&nbsp;&nbsp;case 1:</font>
+<font color="#95a5a6"> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;offsetDx = c*k;</font>
+<font color="#95a5a6"> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;offsetSx = -c*k;</font>
+<font color="#95a5a6"></font>
+<font color="#95a5a6"> &nbsp;&nbsp;&nbsp;default:</font>
+<font color="#95a5a6"> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;offsetDx = 0;</font>
+<font color="#95a5a6"> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;offsetSx = 0;</font>
+<font color="#95a5a6"> &nbsp;&nbsp;&nbsp;</font>
+<font color="#95a5a6"> &nbsp;}</font>
+<font color="#95a5a6"> &nbsp;</font>
+<font color="#95a5a6">}</font>
+<font color="#95a5a6"></font>
+<font color="#95a5a6">*&#47;</font>
+</pre>
